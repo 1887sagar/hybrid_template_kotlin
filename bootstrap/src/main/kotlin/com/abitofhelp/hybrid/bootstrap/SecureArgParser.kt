@@ -316,6 +316,8 @@ object SecureArgParser {
 
             return normalizedPath.toString()
         } catch (e: Exception) {
+            // Log exception details before re-throwing to avoid swallowing
+            System.err.println("Path normalization error: ${e.message}")
             when (e) {
                 is IllegalArgumentException -> throw e
                 else -> throw IllegalArgumentException("Invalid path: ${e.message}")
