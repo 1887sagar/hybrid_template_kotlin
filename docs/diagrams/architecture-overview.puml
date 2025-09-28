@@ -1,0 +1,83 @@
+@startuml architecture-overview
+!theme plain
+title Kotlin Hybrid Architecture - Overview
+
+skinparam componentStyle rectangle
+skinparam component {
+    BackgroundColor<<Domain>> #FFE5B4
+    BackgroundColor<<Application>> #B4E5FF
+    BackgroundColor<<Infrastructure>> #E5B4FF
+    BackgroundColor<<Presentation>> #B4FFE5
+    BackgroundColor<<Bootstrap>> #FFCCCC
+    BorderColor Black
+    FontSize 12
+}
+
+package "Bootstrap Module" <<Bootstrap>> {
+    [Entry Point (main)]
+    [Composition Root]
+    [Configuration]
+}
+
+package "Presentation Layer" <<Presentation>> {
+    [CLI Factory]
+    [REST Controllers]
+    [GraphQL Resolvers]
+    [Web UI]
+}
+
+package "Application Layer" <<Application>> {
+    [Use Cases]
+    [Input Ports]
+    [Output Ports]
+    [Application DTOs]
+    [Application Errors]
+}
+
+package "Domain Layer" <<Domain>> {
+    [Value Objects]
+    [Domain Services]
+    [Domain Policies]
+    [Domain Errors]
+    [Service Interfaces]
+}
+
+package "Infrastructure Layer" <<Infrastructure>> {
+    [Service Implementations]
+    [Output Adapters]
+    [Database Adapters]
+    [External API Clients]
+    [File System Adapters]
+}
+
+' Dependencies - Presentation to Application
+[CLI Factory] --> [Input Ports] : uses
+[REST Controllers] --> [Input Ports] : uses
+[GraphQL Resolvers] --> [Input Ports] : uses
+[Web UI] --> [Input Ports] : uses
+
+' Dependencies - Application to Domain
+[Use Cases] ..|> [Input Ports] : implements
+[Use Cases] --> [Output Ports] : uses
+[Use Cases] --> [Value Objects] : creates
+[Use Cases] --> [Domain Services] : uses
+[Use Cases] --> [Service Interfaces] : uses
+
+' Dependencies - Infrastructure implements ports
+[Service Implementations] ..|> [Service Interfaces] : implements
+[Output Adapters] ..|> [Output Ports] : implements
+[Database Adapters] ..|> [Service Interfaces] : implements
+[External API Clients] ..|> [Output Ports] : implements
+
+' Bootstrap dependencies (special - can access all)
+[Composition Root] ..> [Service Implementations] : creates
+[Composition Root] ..> [Output Adapters] : creates
+[Composition Root] ..> [Use Cases] : creates
+[Composition Root] ..> [CLI Factory] : calls
+[Entry Point (main)] --> [Composition Root] : uses
+
+note top : All dependencies point inward toward the Domain Layer\nExcept Bootstrap Module which wires all concrete implementations
+
+note right of "Bootstrap Module" : The only module that\nknows about all layers\nand concrete types
+
+@enduml

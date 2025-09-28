@@ -1,0 +1,22 @@
+@startuml layer-dependencies
+!theme plain
+title Layer Dependencies - Clean Architecture Rules
+
+package "Domain Layer" as Domain {
+}
+
+package "Application Layer" as Application {
+}
+
+package "Infrastructure Layer" as Infrastructure {
+}
+
+package "Presentation Layer" as Presentation {
+}
+
+Presentation --> Application : uses
+Application --> Domain : uses
+Infrastructure --> Domain : implements
+Infrastructure --> Application : implements
+
+@enduml

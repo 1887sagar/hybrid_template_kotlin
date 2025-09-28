@@ -1,0 +1,105 @@
+@startuml application-layer-class
+!theme plain
+title Application Layer - Class Diagram
+
+package "Application Layer" {
+    package "port.input" {
+        interface CreateGreetingInputPort {
+            + suspend execute(command: CreateGreetingCommand): Either<ApplicationError, GreetingResult>
+        }
+    }
+    
+    package "port.output" {
+        interface OutputPort {
+            + suspend send(message: String): Either<ApplicationError, Unit>
+        }
+    }
+    
+    package "usecase" {
+        class CreateGreetingUseCase {
+            - greetingService: GreetingService
+            - outputPort: OutputPort
+            --
+            + suspend execute(command: CreateGreetingCommand): Either<ApplicationError, GreetingResult>
+            --
+            - validates input
+            - orchestrates domain service
+            - handles output delivery
+        }
+    }
+    
+    package "dto" {
+        class CreateGreetingCommand <<data class>> {
+            + name: String?
+            + silent: Boolean = false
+        }
+        
+        class GreetingResult <<data class>> {
+            + greeting: String
+            + recipientName: String
+        }
+    }
+    
+    package "error" {
+        abstract class ApplicationError
+        
+        class UseCaseError {
+            + useCase: String
+            + cause: String
+        }
+        
+        class OutputError {
+            + message: String
+        }
+        
+        class DomainErrorWrapper {
+            + domainError: DomainError
+            + userMessage: String
+        }
+        
+        ApplicationError <|-- UseCaseError
+        ApplicationError <|-- OutputError
+        ApplicationError <|-- DomainErrorWrapper
+    }
+}
+
+package "Domain Layer" <<Rectangle>> {
+    interface GreetingService
+    class PersonName
+    abstract class DomainError
+}
+
+' Implementation relationship
+CreateGreetingUseCase ..|> CreateGreetingInputPort
+
+' Dependencies
+CreateGreetingUseCase --> GreetingService : uses
+CreateGreetingUseCase --> OutputPort : uses
+CreateGreetingUseCase ..> CreateGreetingCommand : accepts
+CreateGreetingUseCase ..> GreetingResult : returns
+CreateGreetingUseCase ..> PersonName : creates
+CreateGreetingUseCase ..> ApplicationError : returns
+DomainErrorWrapper --> DomainError : wraps
+
+' Notes
+note right of CreateGreetingUseCase
+    Use Case Pattern:
+    - Single responsibility
+    - Orchestrates flow
+    - Error transformation
+end note
+
+note right of CreateGreetingInputPort
+    Input Port (Hexagonal):
+    - Defines contract
+    - Used by presentation
+    - Implemented by use case
+end note
+
+note bottom of ApplicationError
+    Application errors wrap
+    or transform domain errors
+    for presentation layer
+end note
+
+@enduml

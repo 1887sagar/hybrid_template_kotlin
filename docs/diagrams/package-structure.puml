@@ -1,0 +1,223 @@
+@startuml package-structure
+!theme plain
+title Package Structure - Module Organization
+
+skinparam package {
+    BackgroundColor<<Domain>> #FFE5B4
+    BackgroundColor<<Application>> #B4E5FF
+    BackgroundColor<<Infrastructure>> #E5B4FF
+    BackgroundColor<<Presentation>> #B4FFE5
+    BorderColor Black
+    FontSize 12
+}
+
+' Root package
+package "com.abitofhelp.hybrid" {
+    
+    ' Domain Module
+    package "domain" <<Domain>> {
+        package "model" {
+            class Order
+            class Customer
+            class Product
+        }
+        package "value" {
+            class Email
+            class Money
+            class OrderId
+            class CustomerId
+        }
+        package "event" {
+            class DomainEvent
+            class OrderSubmitted
+            class CustomerActivated
+        }
+        package "service" {
+            class PricingService
+            class InventoryService
+        }
+        package "repository" {
+            interface CustomerRepository
+            interface OrderRepository
+            interface ProductRepository
+        }
+        package "error" {
+            class DomainError
+            class ValidationError
+            class BusinessRuleViolation
+        }
+    }
+    
+    ' Application Module
+    package "application" <<Application>> {
+        package "use_case" {
+            package "order" {
+                class CreateOrderUseCase
+                class GetOrderDetailsUseCase
+                class CancelOrderUseCase
+            }
+            package "customer" {
+                class RegisterCustomerUseCase
+                class UpdateCustomerUseCase
+                class GetCustomerUseCase
+            }
+        }
+        package "port" {
+            package "input" {
+                interface CreateOrderPort
+                interface GetCustomerPort
+            }
+            package "output" {
+                interface PaymentServicePort
+                interface NotificationPort
+                interface EventPublisherPort
+            }
+        }
+        package "dto" {
+            class OrderDto
+            class CustomerDto
+            class CreateOrderCommand
+        }
+        package "service" {
+            class ApplicationEventService
+            class NotificationService
+        }
+        package "mapper" {
+            class OrderMapper
+            class CustomerMapper
+        }
+        package "error" {
+            class ApplicationError
+            class UseCaseError
+        }
+    }
+    
+    ' Infrastructure Module
+    package "infrastructure" <<Infrastructure>> {
+        package "adapter" {
+            package "persistence" {
+                package "jpa" {
+                    class JpaCustomerRepository
+                    class JpaOrderRepository
+                }
+                package "mongodb" {
+                    class MongoOrderRepository
+                }
+                package "redis" {
+                    class RedisCacheAdapter
+                }
+            }
+            package "external" {
+                package "payment" {
+                    class StripePaymentAdapter
+                    class PayPalPaymentAdapter
+                }
+                package "email" {
+                    class SendGridEmailAdapter
+                }
+                package "sms" {
+                    class TwilioSmsAdapter
+                }
+            }
+            package "messaging" {
+                package "kafka" {
+                    class KafkaEventPublisher
+                    class KafkaEventConsumer
+                }
+                package "rabbitmq" {
+                    class RabbitMQAdapter
+                }
+            }
+            package "filesystem" {
+                class LocalFileSystemAdapter
+                class S3FileAdapter
+            }
+        }
+        package "config" {
+            class DatabaseConfig
+            class ExternalServiceConfig
+            class MessagingConfig
+        }
+        package "mapper" {
+            class EntityMapper
+            class EventMapper
+        }
+    }
+    
+    ' Presentation Module
+    package "presentation" <<Presentation>> {
+        package "api" {
+            package "rest" {
+                package "v1" {
+                    class OrderController
+                    class CustomerController
+                }
+                package "v2" {
+                    class OrderControllerV2
+                }
+            }
+            package "graphql" {
+                class OrderResolver
+                class CustomerResolver
+            }
+            package "websocket" {
+                class OrderWebSocketHandler
+            }
+        }
+        package "cli" {
+            package "commands" {
+                class CreateOrderCommand
+                class ListOrdersCommand
+                class HelloWorldCommand
+            }
+            package "output" {
+                class JsonFormatter
+                class TableFormatter
+            }
+        }
+        package "web" {
+            package "controller" {
+                class OrderWebController
+            }
+            package "view" {
+                class OrderView
+            }
+        }
+        package "dto" {
+            class CreateOrderRequest
+            class OrderResponse
+            class ValidationError
+        }
+        package "mapper" {
+            class RequestMapper
+            class ResponseMapper
+        }
+        package "security" {
+            class SecurityConfig
+            class JwtAuthFilter
+        }
+        package "error" {
+            class GlobalExceptionHandler
+            class ErrorResponse
+        }
+    }
+}
+
+' Key relationships between packages
+domain.repository <.. infrastructure.adapter.persistence : implements
+application.port.output <.. infrastructure.adapter.external : implements
+application.use_case ..> domain.model : uses
+application.use_case ..> domain.service : uses
+presentation.api.rest ..> application.use_case : calls
+presentation.cli.commands ..> application.use_case : calls
+
+note bottom
+    **Package Organization Principles:**
+    • Each module has clear responsibilities
+    • Packages are organized by feature/concept
+    • Dependencies flow inward toward domain
+    • Infrastructure implements all ports
+    • Presentation only knows about Application layer
+end note
+
+@enduml

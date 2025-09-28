@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OWASP Dependency Check Suppression File
+  
+  This file is used to suppress false positives from the dependency vulnerability scanner.
+  Only add suppressions here after careful review and with proper justification.
+  
+  Each suppression should include:
+  1. The specific CVE or vulnerability being suppressed
+  2. Why it's a false positive or not applicable
+  3. Date of review
+  4. Reviewer name/initials
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    
+    <!-- Example suppression (remove when adding real suppressions):
+    <suppress>
+        <notes><![CDATA[
+        Reviewed: 2025-01-01 by MG
+        This CVE applies only to Spring Boot < 2.5.0, but we're using Kotlin stdlib
+        which incorrectly matches the CPE.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.jetbrains\.kotlin/kotlin\-stdlib.*$</packageUrl>
+        <cve>CVE-2021-12345</cve>
+    </suppress>
+    -->
+    
+    <!-- Add legitimate suppressions below this line -->
+    
+</suppressions>

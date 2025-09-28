@@ -1,0 +1,132 @@
+@startuml bootstrap-module-class
+!theme plain
+title Bootstrap Module - Class Diagram (Async Architecture)
+
+package "Bootstrap Module" {
+    class "suspend main()" as Main <<(F,#FF7700) Suspend Function>> {
+        + suspend main(args: Array<String>)
+        + main(args: Array<String>)
+    }
+    
+    object AsyncApp {
+        + suspend runAsync(args: Array<String>): Int
+        + run(args: Array<String>): Int
+        --
+        - installSignalHandlers()
+        - initiateShutdown()
+        - handleUncaughtException(e: Throwable)
+        - cleanup()
+    }
+    
+    object CompositionRoot {
+        + suspend buildAndRunAsync(cfg: AppConfig): Int
+        + buildProgram(cfg: AppConfig): () -> Int <<deprecated>>
+        --
+        - creates dependency graph
+        - wires all layers together
+    }
+    
+    object SecureArgParser {
+        - DANGEROUS_PATTERNS: List<String>
+        - MAX_ARG_LENGTH: Int = 1000
+        --
+        + parseSecure(args: Array<String>): AppConfig
+        - validateArgument(arg: String): String
+        - validateOutputPath(path: String): String
+        - validateName(name: String): String
+    }
+    
+    class AppConfig <<data class>> {
+        + verbose: Boolean = false
+        + outputPath: String? = null
+        + name: String? = null
+    }
+    
+    class "parseArgs()" as ParseArgs <<(F,#FF7700) Function>> {
+        + parseArgs(args: Array<String>): AppConfig
+    }
+
+package "All Layers" <<Cloud>> {
+    package "Domain" {
+        interface GreetingService
+    }
+    
+    package "Application" {
+        interface CreateGreetingInputPort
+        interface OutputPort
+        class CreateGreetingUseCase
+    }
+    
+    package "Infrastructure" {
+        class DefaultGreetingService
+        class ConsoleOutputAdapter
+    }
+    
+    package "Presentation" {
+        interface Runnable
+        class PresentationConfig
+        class "cli()" as CLI
+    }
+}
+
+' Flow relationships
+Main --> AsyncApp : "calls runAsync"
+AsyncApp --> ParseArgs : uses
+ParseArgs --> SecureArgParser : delegates to
+AsyncApp --> CompositionRoot : "calls buildAndRunAsync"
+CompositionRoot --> DefaultGreetingService : creates
+CompositionRoot --> CompositeOutputAdapter : "creates (console + file)"
+CompositionRoot --> CreateGreetingUseCase : creates
+CompositionRoot --> AsyncCliRunner : creates
+CompositionRoot --> PresentationConfig : creates
+
+' Return relationships
+SecureArgParser ..> AppConfig : returns
+CompositionRoot ..> Main : "returns exit code"
+AsyncApp ..> Main : "returns exit code"
+
+' Notes
+note right of Main
+    Async Entry Points:
+    - suspend main() for pure async
+    - Regular main() for compatibility
+    - Handles system signals
+    - Graceful shutdown
+end note
+
+note right of AsyncApp
+    Signal Handling:
+    - SIGTERM/SIGINT support
+    - 5-second grace period
+    - Structured concurrency
+    - Resource cleanup
+end note
+
+note right of SecureArgParser
+    Security Features:
+    - Input validation
+    - Path traversal prevention
+    - Command injection protection
+    - Length limits
+end note
+
+note right of CompositionRoot
+    Composition Root Pattern:
+    - All wiring in one place
+    - Manual DI (no framework)
+    - Async-first design
+    - Returns exit code
+end note
+
+note bottom of "All Layers"
+    Bootstrap is the only module that:
+    - Accesses all layers
+    - Knows concrete implementations
+    - Handles application lifecycle
+end note
+
+' Styling
+Main -[hidden]- App
+App -[hidden]- CompositionRoot
+
+@enduml

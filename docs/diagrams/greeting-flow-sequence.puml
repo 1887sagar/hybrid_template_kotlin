@@ -1,0 +1,120 @@
+@startuml greeting-flow-sequence
+!theme plain
+title Create Greeting Flow - Sequence Diagram
+
+actor User
+participant "main()" as Main
+participant "App" as App
+participant "CompositionRoot" as CR
+participant "CLI\nFactory" as CLI
+participant "CreateGreeting\nUseCase" as UC
+participant "PersonName" as PN
+participant "DefaultGreeting\nService" as GS
+participant "GreetingPolicy" as GP
+participant "ConsoleOutput\nAdapter" as OUT
+
+== Startup and Dependency Wiring ==
+
+User -> Main: Run with args\n["John"]
+activate Main
+
+Main -> App: run(args)
+activate App
+
+App -> App: parseArgs(args)
+note right: Extract name, verbose,\nand outputPath
+
+App -> CR: buildProgram(config)
+activate CR
+
+CR -> CR: Wire dependencies
+note right
+  1. Create infrastructure
+  2. Create use cases
+  3. Create presentation
+end note
+
+CR -> CLI: cli(config, useCase)
+activate CLI
+CLI --> CR: Runnable
+deactivate CLI
+
+CR --> App: () -> Int
+deactivate CR
+
+== Execution Flow ==
+
+App -> CLI: runnable.run()
+activate CLI
+
+CLI -> CLI: Create command
+note right: CreateGreetingCommand\n(name="John")
+
+CLI -> UC: execute(command)
+activate UC
+
+UC -> PN: create("John")
+activate PN
+
+PN -> PN: Validate name
+note right: Check blank\nCheck pattern\nTrim whitespace
+
+PN --> UC: Either.Right(PersonName)
+deactivate PN
+
+UC -> GS: createGreeting(personName)
+activate GS
+
+GS -> GP: determineGreetingFormat(name)
+activate GP
+
+GP -> GP: Apply rules
+note right: Length > 20? FORMAL\nAnonymous? DEFAULT\nElse? FRIENDLY
+
+GP --> GS: GreetingFormat.FRIENDLY
+deactivate GP
+
+GS -> GS: Generate greeting
+note right: "Hey there, John!\nWelcome!"
+
+GS -> GS: Validate length
+note right: Check against\nMAX_GREETING_LENGTH
+
+GS --> UC: Either.Right(greeting)
+deactivate GS
+
+UC -> OUT: send(greeting)
+activate OUT
+
+OUT -> OUT: Validate message
+note right: Check not blank
+
+OUT -> OUT: println(message)
+OUT --> UC: Either.Right(Unit)
+deactivate OUT
+
+UC --> CLI: Either.Right(GreetingResult)
+deactivate UC
+
+CLI -> CLI: Handle success
+note right: If verbose, print\n"[INFO] Greeting delivered"
+
+CLI --> App: (returns)
+deactivate CLI
+
+App --> Main: 0 (success)
+deactivate App
+
+Main -> Main: exitProcess(0)
+deactivate Main
+
+== Error Handling Example ==
+
+note over UC, OUT
+  If any step returns Either.Left:
+  1. Error is propagated up
+  2. CLI formats user-friendly message
+  3. App returns appropriate exit code
+end note
+
+@enduml

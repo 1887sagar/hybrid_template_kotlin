@@ -1,0 +1,133 @@
+@startuml error-handling-sequence
+!theme plain
+title Error Handling Flow - Sequence Diagram
+
+actor User
+participant "CLI" as CLI
+participant "CreateGreeting\nUseCase" as UC
+participant "PersonName" as PN
+participant "DefaultGreeting\nService" as GS
+participant "ConsoleOutput\nAdapter" as OUT
+
+== Validation Error Flow ==
+
+User -> CLI: Invalid name\n"123!@#"
+activate CLI
+
+CLI -> UC: execute(command)
+activate UC
+
+UC -> PN: create("123!@#")
+activate PN
+
+PN -> PN: Validate
+note right: Fails pattern match\n(only letters, spaces,\nhyphens, apostrophes)
+
+PN --> UC: Either.Left(\nDomainError.ValidationError)
+deactivate PN
+
+UC -> UC: Transform error
+note right: Wrap in\nApplicationError.\nDomainErrorWrapper
+
+UC --> CLI: Either.Left(\nApplicationError)
+deactivate UC
+
+CLI -> CLI: Format error
+note right: Extract userMessage:\n"name: Name can only\ncontain letters..."
+
+CLI -> User: Error: Invalid input:\nname: Name can only contain...
+deactivate CLI
+
+== Business Rule Violation ==
+
+User -> CLI: Very long greeting
+activate CLI
+
+CLI -> UC: execute(command)
+activate UC
+
+UC -> PN: create(name)
+activate PN
+PN --> UC: Either.Right(PersonName)
+deactivate PN
+
+UC -> GS: createGreeting(name)
+activate GS
+
+GS -> GS: Generate greeting
+GS -> GS: Check length > 200
+
+GS --> UC: Either.Left(\nBusinessRuleViolation)
+deactivate GS
+
+UC -> UC: Wrap error
+
+UC --> CLI: Either.Left(\nApplicationError)
+deactivate UC
+
+CLI -> User: Error: Invalid input:\nMaxGreetingLength - Greeting\nexceeds maximum length
+deactivate CLI
+
+== Infrastructure Error ==
+
+User -> CLI: Normal request
+activate CLI
+
+CLI -> UC: execute(command)
+activate UC
+
+UC -> PN: create(name)
+activate PN
+PN --> UC: Either.Right(PersonName)
+deactivate PN
+
+UC -> GS: createGreeting(name)
+activate GS
+GS --> UC: Either.Right(greeting)
+deactivate GS
+
+UC -> OUT: send(greeting)
+activate OUT
+
+OUT -> OUT: Try to print
+note right: SecurityException:\nSystem.out redirected
+
+OUT -> OUT: Catch exception
+note right: Transform to\nApplicationError.\nOutputError
+
+OUT --> UC: Either.Left(\nOutputError)
+deactivate OUT
+
+UC --> CLI: Either.Left(\nApplicationError)
+deactivate UC
+
+CLI -> User: Error: Failed to deliver\ngreeting: Security error...
+deactivate CLI
+
+== Unexpected Error ==
+
+User -> CLI: Request
+activate CLI
+
+CLI -> CLI: Unexpected exception
+note right: Not caught by\nEither flow
+
+CLI -> CLI: Catch all handler
+note right: catch (e: Exception)
+
+CLI -> User: Unexpected error:\n[exception details]
+deactivate CLI
+
+== Error Transformation Chain ==
+
+note over PN, OUT
+  Domain Layer: DomainError
+  ↓
+  Application Layer: ApplicationError.DomainErrorWrapper
+  ↓
+  Infrastructure: ApplicationError.OutputError
+  ↓
+  Presentation: User-friendly message
+end note
+
+@enduml

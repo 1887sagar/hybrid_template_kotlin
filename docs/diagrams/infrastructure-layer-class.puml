@@ -1,0 +1,131 @@
+@startuml infrastructure-layer-class
+!theme plain
+title Infrastructure Layer - Class Diagram
+
+package "Infrastructure Layer" {
+    package "adapter.output" {
+        class ConsoleOutputAdapter {
+            + suspend send(message: String): Either<ApplicationError, Unit>
+            --
+            - validates message not blank
+            - handles exceptions gracefully
+        }
+        
+        class FileOutputAdapter {
+            - filePath: String
+            + suspend send(message: String): Either<ApplicationError, Unit>
+            --
+            - creates parent directories
+            - appends to file
+            - async I/O with Dispatchers.IO
+        }
+        
+        class CompositeOutputAdapter {
+            - outputs: List<OutputPort>
+            + suspend send(message: String): Either<ApplicationError, Unit>
+            + {static} createDefault(filePath: String?): OutputPort
+            --
+            - sends to all outputs concurrently
+            - collects all errors
+            - uses coroutines for parallel execution
+        }
+    }
+    
+    package "service" {
+        class DefaultGreetingService {
+            + suspend createGreeting(name: PersonName): Either<DomainError, String>
+            --
+            - uses GreetingPolicy for format
+            - validates greeting length
+            - returns formatted greeting
+        }
+    }
+    
+    package "Future Adapters" <<Cloud>> {
+        class DatabaseOutputAdapter {
+            - dataSource: DataSource
+            + suspend send(message: String): Either<ApplicationError, Unit>
+        }
+        
+        class ApiOutputAdapter {
+            - httpClient: HttpClient
+            + suspend send(message: String): Either<ApplicationError, Unit>
+        }
+        
+        class ApiGreetingService {
+            - httpClient: HttpClient
+            + suspend createGreeting(name: PersonName): Either<DomainError, String>
+        }
+    }
+}
+
+package "Application Layer" <<Rectangle>> {
+    interface OutputPort
+    abstract class ApplicationError
+}
+
+package "Domain Layer" <<Rectangle>> {
+    interface GreetingService
+    class PersonName
+    abstract class DomainError
+    object GreetingPolicy
+    enum GreetingFormat
+}
+
+' Implementation relationships
+ConsoleOutputAdapter ..|> OutputPort
+FileOutputAdapter ..|> OutputPort
+CompositeOutputAdapter ..|> OutputPort
+DefaultGreetingService ..|> GreetingService
+DatabaseOutputAdapter ..|> OutputPort
+ApiOutputAdapter ..|> OutputPort
+ApiGreetingService ..|> GreetingService
+
+' Composition
+CompositeOutputAdapter o-- OutputPort : "contains multiple"
+
+' Dependencies
+ConsoleOutputAdapter ..> ApplicationError : returns
+DefaultGreetingService ..> PersonName : uses
+DefaultGreetingService ..> DomainError : returns
+DefaultGreetingService --> GreetingPolicy : uses
+DefaultGreetingService ..> GreetingFormat : uses
+
+' Notes
+note right of ConsoleOutputAdapter
+    Console Adapter:
+    - Thread-safe println
+    - Message validation
+    - Error transformation
+end note
+
+note right of FileOutputAdapter
+    File Adapter:
+    - Async file I/O
+    - Creates directories
+    - Append mode
+    - Security validation
+end note
+
+note right of CompositeOutputAdapter
+    Composite Pattern:
+    - Multiple outputs
+    - Concurrent sending
+    - Partial failure handling
+    - Factory method
+end note
+
+note right of DefaultGreetingService
+    Infrastructure Service:
+    - Replaceable implementation
+    - Could load from DB/API
+    - Currently hardcoded
+end note
+
+note bottom of "Future Adapters"
+    Easy to add new implementations
+    without changing domain or
+    application layers
+end note
+
+@enduml

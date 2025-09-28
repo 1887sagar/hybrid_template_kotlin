@@ -1,0 +1,374 @@
+# ===================================================================
+# Kotlin Hybrid Architecture Template - Git Ignore Configuration
+# ===================================================================
+# Optimized for cross-platform development (macOS, Linux, Windows)
+# ===================================================================
+
+# ===================================================================
+# Build Outputs
+# ===================================================================
+
+## Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+gradle-app.setting
+.gradletasknamecache
+
+## Kotlin/JVM
+out/
+*.class
+*.jar
+*.war
+*.ear
+.kotlin/
+
+## Test Reports
+TEST-*.xml
+test-results/
+test-output/
+allure-results/
+
+## Coverage Reports
+jacoco.xml
+**/jacoco/
+**/reports/
+htmlcov/
+coverage/
+*.lcov
+.coverage
+.coverage.*
+coverage.xml
+
+## Documentation Build
+docs/_build/
+docs/generated/
+site/
+**/dokka/
+
+# ===================================================================
+# IDE and Editor Files
+# ===================================================================
+
+## IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+atlassian-ide-plugin.xml
+
+## Eclipse
+.metadata/
+.settings/
+.classpath
+.project
+.loadpath
+.recommenders/
+.externalToolBuilders/
+*.launch
+.buildpath
+.target
+.apt_generated/
+.apt_generated_test/
+.factorypath
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+## NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+## Visual Studio Code
+.vscode/
+!.vscode/settings.json.template
+!.vscode/tasks.json.template
+!.vscode/launch.json.template
+!.vscode/extensions.json.template
+*.code-workspace
+.history/
+
+## Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+Sessionx.vim
+.netrwhist
+*~
+tags
+[._]*.un~
+
+## Emacs
+\#*\#
+.\#*
+*~
+*.elc
+auto-save-list
+tramp
+
+## Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+## TextMate
+*.tmproj
+*.tmproject
+tmtags
+
+## Kate
+.kateproject
+.kateproject.d/
+
+# ===================================================================
+# Operating System Files
+# ===================================================================
+
+## macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+## Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+*.exe
+*.dll
+
+## Linux
+*~
+.directory
+.Trash-*
+.nfs*
+.fuse_hidden*
+
+# ===================================================================
+# Language-Specific
+# ===================================================================
+
+## Java/Kotlin
+*.hprof
+hs_err_pid*
+replay_pid*
+
+## JVM Logs
+*.log
+*.gz
+logs/
+
+## Kotlin Native
+.konan/
+kotlin-native/
+
+# ===================================================================
+# Security and Secrets
+# ===================================================================
+
+## Environment Variables
+.env
+.env.local
+.env.*.local
+*.env
+!example.env
+!.env.example
+
+## Keys and Certificates
+*.pem
+*.key
+*.crt
+*.cer
+*.pfx
+*.p12
+*.jks
+*.keystore
+*.truststore
+
+## Credentials
+*_credentials.json
+*-credentials.json
+credentials/
+secrets/
+.secrets/
+
+## AWS
+.aws/
+
+## Google Cloud
+gcloud/
+.gcloud/
+
+## Azure
+.azure/
+
+# ===================================================================
+# Logs and Temporary Files
+# ===================================================================
+
+## Logs
+logs/
+*.log
+*.log.*
+*.out
+
+## Temporary Files
+*.tmp
+*.temp
+*.swp
+*.bak
+*.backup
+*.old
+*.orig
+tmp/
+temp/
+cache/
+.cache/
+
+## OS Temp
+*.pid
+*.seed
+*.pid.lock
+
+# ===================================================================
+# Package Managers
+# ===================================================================
+
+## Maven (in case of migration)
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# ===================================================================
+# Project-Specific
+# ===================================================================
+
+## Local Configuration
+local.properties
+config.local.yml
+settings.local.json
+application-local.yml
+application-local.properties
+
+## Personal Notes
+personal/
+notes/
+TODO.md.local
+NOTES.md
+
+## Benchmark Results
+benchmarks/results/
+*.bench
+*.jmh
+
+## Database Files
+*.db
+*.sqlite
+*.sqlite3
+*.h2.db
+
+## OWASP Dependency Check
+dependency-check-report.*
+owasp-cache/
+
+# ===================================================================
+# PlantUML
+# ===================================================================
+*.plantuml.tmp
+*.puml.tmp
+
+# ===================================================================
+# Exceptions (Don't Ignore These)
+# ===================================================================
+
+## Keep Git files
+!.gitkeep
+!.gitattributes
+!.gitignore
+
+## Keep Documentation
+!README.md
+!LICENSE
+!CONTRIBUTING.md
+!CHANGELOG.md
+!CODE_OF_CONDUCT.md
+
+## Keep GitHub files
+!.github/
+
+## Keep template files
+!**/templates/**
+!**/*.template
+
+## Keep example/sample files
+!**/examples/**
+!**/samples/**
+!example.*
+!sample.*
+
+## Keep test resources
+!**/src/test/resources/**
+!**/src/integrationTest/resources/**
+!**/src/functionalTest/resources/**
+!**/testdata/**
+!**/test-data/**
+
+## Keep configuration templates
+!config/**/*.example
+!config/**/*.template
+
+## Keep scripts
+!scripts/**/*.sh
+!scripts/**/*.bat
+!scripts/**/*.ps1
+
+## Keep docs
+!docs/**
+!*.md
+!**/*.md
+
+# ===================================================================
+# End of .gitignore
+# ===================================================================
+/standards/Claude_Kotlin.md
+/standards/README.md

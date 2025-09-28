@@ -1,0 +1,60 @@
+[versions]
+kotlin = "2.2.0"
+kotlinx-coroutines = "1.8.0"
+arrow2 = "2.1.0"
+arrowFx = "2.1.0"
+gson = "2.10.1"
+ktoml = "0.7.1"
+mockk = "1.13.10"
+junit = "5.10.2"
+junitPlatform = "1.10.2"
+kotest = "5.8.0"
+archunit = "1.3.0"
+
+detekt = "1.23.8"
+ktlint = "12.1.0"
+foojay = "0.8.0"
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+application = { id = "application" }
+java-library = { id = "java-library" }
+
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
+foojay = { id = "org.gradle.toolchains.foojay-resolver-convention", version.ref = "foojay" }
+
+[libraries]
+# Kotlin
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test" }
+kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5" }
+
+# Coroutines
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+
+# Arrow (v2 only)
+arrow-core-v2 = { module = "io.arrow-kt:arrow-core", version.ref = "arrow2" }
+arrow-fx-coroutines-v2 = { module = "io.arrow-kt:arrow-fx-coroutines", version.ref = "arrowFx" }
+
+# JSON
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+
+# Testing
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junitPlatform" }
+mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+kotest-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotest-property = { module = "io.kotest:kotest-property", version.ref = "kotest" }
+archunit = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+
+# Detekt formatting plugin
+detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
+
+# TOML
+ktoml-core = { module = "com.akuleshov7:ktoml-core", version.ref = "ktoml" }
+ktoml-file = { module = "com.akuleshov7:ktoml-file", version.ref = "ktoml" }

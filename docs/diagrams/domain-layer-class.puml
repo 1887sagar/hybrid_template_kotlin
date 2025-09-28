@@ -1,0 +1,88 @@
+@startuml domain-layer-class
+!theme plain
+title Domain Layer - Class Diagram
+
+package "Domain Layer" {
+    package "value" {
+        class PersonName <<value class>> {
+            - value: String
+            - {static} NAME_PATTERN: Regex
+            --
+            + {static} create(value: String): Either<ValidationError, PersonName>
+            + {static} anonymous(): PersonName
+        }
+    }
+    
+    package "service" {
+        interface GreetingService {
+            + createGreeting(name: PersonName): Either<DomainError, String>
+        }
+        
+        object GreetingPolicy {
+            - LONG_NAME_THRESHOLD: Int = 20
+            + MAX_GREETING_LENGTH: Int = 200
+            --
+            + determineGreetingFormat(name: PersonName): GreetingFormat
+        }
+        
+        enum GreetingFormat {
+            DEFAULT
+            FRIENDLY
+            FORMAL
+        }
+    }
+    
+    package "error" {
+        abstract class DomainError
+        
+        class ValidationError {
+            + field: String
+            + message: String
+        }
+        
+        class BusinessRuleViolation {
+            + rule: String
+            + reason: String
+        }
+        
+        class NotFound {
+            + entity: String
+            + id: String
+        }
+        
+        DomainError <|-- ValidationError
+        DomainError <|-- BusinessRuleViolation
+        DomainError <|-- NotFound
+    }
+}
+
+' Relationships
+GreetingService ..> PersonName : uses
+GreetingService ..> DomainError : returns
+GreetingPolicy ..> PersonName : uses
+GreetingPolicy ..> GreetingFormat : returns
+PersonName ..> ValidationError : returns
+
+' Notes
+note right of PersonName
+    Value Object Pattern:
+    - Immutable
+    - Self-validating
+    - No identity
+end note
+
+note right of GreetingService
+    Domain Service:
+    - Defines contract
+    - No implementation
+    - Pure domain logic
+end note
+
+note right of DomainError
+    Sealed Class Hierarchy:
+    - Type-safe errors
+    - No exceptions
+    - Functional style
+end note
+
+@enduml

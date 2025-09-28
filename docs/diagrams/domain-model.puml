@@ -1,0 +1,118 @@
+@startuml domain-model
+!theme plain
+title Domain Model - Core Business Concepts
+
+skinparam class {
+    BackgroundColor<<Entity>> #FFE5B4
+    BackgroundColor<<ValueObject>> #FFE5CC
+    BackgroundColor<<DomainService>> #FFDAB9
+    BackgroundColor<<Repository>> #FFD700
+    BackgroundColor<<DomainEvent>> #FFEBCD
+    BorderColor Black
+}
+
+' Value Objects
+class Email <<ValueObject>> {
+    - value: String
+    + validate(): Boolean
+}
+
+class Money <<ValueObject>> {
+    - amount: BigDecimal
+    - currency: Currency
+    + add(other: Money): Money
+    + subtract(other: Money): Money
+}
+
+class CustomerId <<ValueObject>> {
+    - value: String
+    + generate(): CustomerId
+}
+
+class OrderId <<ValueObject>> {
+    - value: String
+    + generate(): OrderId
+}
+
+' Entities
+class Customer <<Entity>> {
+    - id: CustomerId
+    - name: String
+    - email: Email
+    - status: CustomerStatus
+    + changeEmail(email: Email): Either<DomainError, EmailChanged>
+    + activate(): Either<DomainError, CustomerActivated>
+}
+
+class Order <<Entity>> {
+    - id: OrderId
+    - customerId: CustomerId
+    - items: List<OrderItem>
+    - status: OrderStatus
+    + addItem(product: Product, quantity: Int): Either<DomainError, ItemAdded>
+    + removeItem(itemId: String): Either<DomainError, ItemRemoved>
+    + submit(): Either<DomainError, OrderSubmitted>
+    + calculateTotal(): Money
+}
+
+class Product <<Entity>> {
+    - id: ProductId
+    - name: String
+    - price: Money
+    - stock: Int
+    + updatePrice(price: Money): Either<DomainError, PriceUpdated>
+    + adjustStock(quantity: Int): Either<DomainError, StockAdjusted>
+}
+
+' Domain Services
+class PricingService <<DomainService>> {
+    + calculateDiscount(order: Order, customer: Customer): Money
+    + applyPromotions(order: Order): Order
+}
+
+class InventoryService <<DomainService>> {
+    + checkAvailability(items: List<OrderItem>): Either<DomainError, Boolean>
+    + reserveStock(items: List<OrderItem>): Either<DomainError, ReservationId>
+}
+
+' Repository Interfaces
+interface CustomerRepository <<Repository>> {
+    + findById(id: CustomerId): Either<DomainError, Customer?>
+    + save(customer: Customer): Either<DomainError, Customer>
+    + findByEmail(email: Email): Either<DomainError, Customer?>
+}
+
+interface OrderRepository <<Repository>> {
+    + findById(id: OrderId): Either<DomainError, Order?>
+    + save(order: Order): Either<DomainError, Order>
+    + findByCustomerId(customerId: CustomerId): Either<DomainError, List<Order>>
+}
+
+' Domain Events
+class OrderSubmitted <<DomainEvent>> {
+    + orderId: OrderId
+    + customerId: CustomerId
+    + total: Money
+    + occurredAt: Instant
+}
+
+class CustomerActivated <<DomainEvent>> {
+    + customerId: CustomerId
+    + occurredAt: Instant
+}
+
+' Relationships
+Customer "1" -- "*" Order : places
+Order "1" -- "*" OrderItem : contains
+Order --> Money : total
+Customer --> Email : has
+Customer --> CustomerId : identified by
+Order --> OrderId : identified by
+Order ..> OrderSubmitted : emits
+Customer ..> CustomerActivated : emits
+PricingService ..> Order : calculates for
+PricingService ..> Customer : considers
+CustomerRepository ..> Customer : manages
+OrderRepository ..> Order : manages
+
+@enduml

@@ -1,0 +1,118 @@
+@startuml error-handling-flow
+!theme plain
+title Error Handling Flow - Either Pattern
+
+skinparam class {
+    BackgroundColor<<Domain>> #FFE5B4
+    BackgroundColor<<Application>> #B4E5FF
+    BackgroundColor<<Infrastructure>> #E5B4FF
+    BackgroundColor<<Presentation>> #B4FFE5
+}
+
+' Error hierarchy
+abstract class DomainError <<Domain>> {
+    {abstract}
+}
+
+class ValidationError <<Domain>> {
+    + field: String
+    + message: String
+}
+
+class BusinessRuleViolation <<Domain>> {
+    + rule: String
+    + reason: String
+}
+
+class NotFound <<Domain>> {
+    + entity: String
+    + id: String
+}
+
+abstract class ApplicationError <<Application>> {
+    {abstract}
+}
+
+class UseCaseError <<Application>> {
+    + useCase: String
+    + cause: DomainError
+}
+
+class RepositoryError <<Application>> {
+    + operation: String
+    + message: String
+}
+
+class ExternalServiceError <<Application>> {
+    + service: String
+    + message: String
+}
+
+class HttpError <<Presentation>> {
+    + status: Int
+    + message: String
+    + details: Map<String, Any>
+}
+
+' Error transformations
+note top of DomainError
+    **Domain Layer**
+    Pure business errors
+    No technical details
+end note
+
+note top of ApplicationError
+    **Application Layer**
+    Maps domain errors
+    Adds context
+end note
+
+note top of HttpError
+    **Presentation Layer**
+    HTTP-specific errors
+    User-friendly messages
+end note
+
+' Either flow example
+package "Error Flow Example" {
+    class "Repository" <<Infrastructure>> {
+        findById(): Either<DomainError, Entity>
+    }
+    
+    class "UseCase" <<Application>> {
+        execute(): Either<ApplicationError, Result>
+    }
+    
+    class "Controller" <<Presentation>> {
+        handleRequest(): ResponseEntity<T>
+    }
+}
+
+' Inheritance
+DomainError <|-- ValidationError
+DomainError <|-- BusinessRuleViolation
+DomainError <|-- NotFound
+
+ApplicationError <|-- UseCaseError
+ApplicationError <|-- RepositoryError
+ApplicationError <|-- ExternalServiceError
+
+' Transformation flow
+DomainError ..> ApplicationError : "maps to"
+ApplicationError ..> HttpError : "converts to"
+
+' Flow annotations
+"Repository" --> "UseCase" : Either<DomainError, Entity>
+"UseCase" --> "Controller" : Either<ApplicationError, Result>
+"Controller" --> Client : HTTP Response
+
+note bottom
+    **Error Handling Principles:**
+    • Errors are values, not exceptions
+    • Use Either<Error, Success> pattern
+    • Transform errors at layer boundaries
+    • Never throw exceptions across layers
+    • Provide meaningful error context
+end note
+
+@enduml

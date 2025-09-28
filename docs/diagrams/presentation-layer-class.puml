@@ -1,0 +1,111 @@
+@startuml presentation-layer-class
+!theme plain
+title Presentation Layer - Class Diagram (Async Architecture)
+
+package "Presentation Layer" {
+    package "cli" {
+        class AsyncCliRunner implements CoroutineScope {
+            - createGreeting: CreateGreetingInputPort
+            - dispatcher: CoroutineDispatcher
+            - job: SupervisorJob
+            - errorHandler: CoroutineExceptionHandler
+            --
+            + runAsync(config: PresentationConfig): Deferred<Int>
+            + shutdown(): Unit
+            - handleCoroutineException(e: Throwable)
+        }
+        
+        class "suspendCli()" as SuspendCli <<(F,#FF7700) Suspend Function>> {
+            + suspend suspendCli(cfg: PresentationConfig, createGreeting: CreateGreetingInputPort): Int
+        }
+        
+        class "asyncCli()" as AsyncCli <<(F,#FF7700) Function>> {
+            + asyncCli(cfg: PresentationConfig, createGreeting: CreateGreetingInputPort): Runnable
+            note: "Compatibility wrapper"
+        }
+        
+        class "createAndRunCli()" as CreateAndRunCli <<(F,#FF7700) Suspend Function>> {
+            + suspend createAndRunCli(cfg: PresentationConfig, createGreeting: CreateGreetingInputPort): Int
+        }
+        
+        class PresentationConfig <<data class>> {
+            + verbose: Boolean
+            + outputPath: String?
+            + name: String?
+        }
+    }
+    
+    package "Future UI" <<Cloud>> {
+        class RestController {
+            - createGreeting: CreateGreetingInputPort
+            + handlePost(request: Request): Response
+        }
+        
+        class GraphQLResolver {
+            - createGreeting: CreateGreetingInputPort
+            + resolveGreeting(input: GreetingInput): GreetingPayload
+        }
+        
+        class DesktopView {
+            - viewModel: GreetingViewModel
+            + render(): Component
+        }
+    }
+}
+
+package "Application Layer" <<Rectangle>> {
+    interface CreateGreetingInputPort
+    class CreateGreetingCommand
+    class GreetingResult
+    abstract class ApplicationError
+}
+
+' Creation relationships
+CreateAndRunCli --> AsyncCliRunner : creates
+AsyncCli ..> Runnable : "creates (wrapper)"
+SuspendCli --> AsyncCliRunner : uses
+
+' Dependencies
+AsyncCliRunner --> CreateGreetingInputPort : uses
+AsyncCliRunner ..> PresentationConfig : uses
+AsyncCliRunner ..> CreateGreetingCommand : creates
+AsyncCliRunner ..> ApplicationError : handles
+RestController --> CreateGreetingInputPort : uses
+GraphQLResolver --> CreateGreetingInputPort : uses
+
+' Notes
+note right of AsyncCliRunner
+    Structured Concurrency:
+    - Implements CoroutineScope
+    - SupervisorJob for isolation
+    - Proper exception handling
+    - Resource cleanup
+end note
+
+note right of SuspendCli
+    Pure Async Function:
+    - No blocking calls
+    - Proper resource management
+    - Returns exit code
+end note
+
+note right of AsyncCli
+    Compatibility Layer:
+    - Wraps async in Runnable
+    - For legacy integration
+    - Uses runBlocking internally
+end note
+
+note left of PresentationConfig
+    Presentation Configuration:
+    - UI-specific settings
+    - Separate from domain
+    - Immutable data class
+end note
+
+note bottom of "Future UI"
+    Same input port can be
+    used by different UI types
+end note
+
+@enduml

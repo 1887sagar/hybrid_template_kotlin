@@ -1,0 +1,98 @@
+@startuml hexagonal-ports-adapters
+!theme plain
+title Hexagonal Architecture - Ports and Adapters Pattern
+
+skinparam component {
+    BackgroundColor<<Core>> #FFE5B4
+    BackgroundColor<<Port>> #B4E5FF
+    BackgroundColor<<Adapter>> #E5B4FF
+    BackgroundColor<<External>> #D3D3D3
+    BorderColor Black
+}
+
+' Center hexagon (Domain + Application)
+component "Domain Core" as Core <<Core>> {
+    [Domain Models]
+    [Business Rules]
+    [Domain Services]
+}
+
+component "Application Layer" as App <<Core>> {
+    [Use Cases]
+    [Application Services]
+}
+
+' Input Ports (Driving Side - Left)
+interface "CreateOrderUseCase" as CreateOrderPort <<Port>>
+interface "GetCustomerUseCase" as GetCustomerPort <<Port>>
+interface "ProcessPaymentUseCase" as ProcessPaymentPort <<Port>>
+
+' Output Ports (Driven Side - Right)
+interface "CustomerRepository" as CustomerRepoPort <<Port>>
+interface "OrderRepository" as OrderRepoPort <<Port>>
+interface "PaymentGateway" as PaymentPort <<Port>>
+interface "NotificationService" as NotificationPort <<Port>>
+interface "EventPublisher" as EventPort <<Port>>
+
+' Input Adapters (Primary/Driving Adapters - Left)
+component "REST Controller" as RestAdapter <<Adapter>>
+component "GraphQL Resolver" as GraphQLAdapter <<Adapter>>
+component "CLI Command" as CLIAdapter <<Adapter>>
+component "Message Consumer" as MessageAdapter <<Adapter>>
+
+' Output Adapters (Secondary/Driven Adapters - Right)
+component "JPA Repository" as JPAAdapter <<Adapter>>
+component "MongoDB Repository" as MongoAdapter <<Adapter>>
+component "Stripe Adapter" as StripeAdapter <<Adapter>>
+component "SendGrid Adapter" as EmailAdapter <<Adapter>>
+component "Kafka Publisher" as KafkaAdapter <<Adapter>>
+
+' External Systems
+database "PostgreSQL" as Postgres <<External>>
+database "MongoDB" as Mongo <<External>>
+cloud "Stripe API" as Stripe <<External>>
+cloud "SendGrid API" as SendGrid <<External>>
+queue "Kafka" as Kafka <<External>>
+
+' Connect Input Adapters to Input Ports
+RestAdapter --> CreateOrderPort : calls
+RestAdapter --> GetCustomerPort : calls
+GraphQLAdapter --> CreateOrderPort : calls
+CLIAdapter --> ProcessPaymentPort : calls
+MessageAdapter --> CreateOrderPort : calls
+
+' Connect Use Cases to Core
+CreateOrderPort <|.. [Use Cases] : implements
+GetCustomerPort <|.. [Use Cases] : implements
+ProcessPaymentPort <|.. [Use Cases] : implements
+
+' Connect Core to Output Ports
+[Use Cases] --> CustomerRepoPort : uses
+[Use Cases] --> OrderRepoPort : uses
+[Use Cases] --> PaymentPort : uses
+[Application Services] --> NotificationPort : uses
+[Application Services] --> EventPort : uses
+
+' Connect Output Adapters to Output Ports
+CustomerRepoPort <|.. JPAAdapter : implements
+OrderRepoPort <|.. MongoAdapter : implements
+PaymentPort <|.. StripeAdapter : implements
+NotificationPort <|.. EmailAdapter : implements
+EventPort <|.. KafkaAdapter : implements
+
+' Connect Output Adapters to External Systems
+JPAAdapter --> Postgres : uses
+MongoAdapter --> Mongo : uses
+StripeAdapter --> Stripe : calls
+EmailAdapter --> SendGrid : calls
+KafkaAdapter --> Kafka : publishes to
+
+note top
+    **Hexagonal Architecture**
+    • Core business logic is isolated in the center
+    • Ports define interfaces for external communication
+    • Adapters implement ports to connect to external systems
+    • Dependencies always point inward
+end note
+
+@enduml

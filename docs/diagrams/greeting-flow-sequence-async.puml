@@ -1,0 +1,145 @@
+@startuml greeting-flow-sequence-async
+!theme plain
+title Create Greeting Flow - Async Sequence Diagram
+
+actor User
+participant "suspend main()" as Main
+participant "AsyncApp" as App
+participant "SecureArgParser" as Parser
+participant "CompositionRoot" as CR
+participant "AsyncCliRunner" as CLI
+participant "CreateGreeting\nUseCase" as UC
+participant "PersonName" as PN
+participant "DefaultGreeting\nService" as GS
+participant "GreetingPolicy" as GP
+participant "CompositeOutput\nAdapter" as OUT
+
+== Startup and Signal Installation ==
+
+User -> Main: Run with args\n["John", "--out=greetings.txt"]
+activate Main
+
+Main -> App: runAsync(args)
+activate App
+
+App -> App: installSignalHandlers()
+note right: SIGTERM, SIGINT\nfor graceful shutdown
+
+== Configuration Parsing ==
+
+App -> Parser: parseSecure(args)
+activate Parser
+
+Parser -> Parser: Validate arguments
+note right
+  Security checks:
+  - No injection patterns
+  - Path validation
+  - Length limits
+end note
+
+Parser --> App: AppConfig
+deactivate Parser
+
+== Dependency Wiring ==
+
+App -> CR: buildAndRunAsync(config)
+activate CR
+
+CR -> CR: Wire dependencies
+note right
+  1. DefaultGreetingService
+  2. CompositeOutputAdapter
+  3. CreateGreetingUseCase
+  4. AsyncCliRunner
+end note
+
+== Async Execution ==
+
+CR -> CLI: runAsync(presentationConfig)
+activate CLI
+
+CLI -> CLI: Create command
+note right: CreateGreetingCommand\n(name="John", silent=false)
+
+CLI -> UC: execute(command)
+activate UC
+
+UC -> PN: create("John")
+activate PN
+
+PN -> PN: Validate name
+note right: Async-safe validation
+
+PN --> UC: Either.Right(PersonName)
+deactivate PN
+
+UC -> GS: createGreeting(personName)
+activate GS
+
+GS -> GP: determineGreetingFormat(name)
+activate GP
+
+GP --> GS: GreetingFormat.FRIENDLY
+deactivate GP
+
+GS -> GS: Generate greeting
+note right: "Hey there, John!\nWelcome!"
+
+GS --> UC: Either.Right(greeting)
+deactivate GS
+
+== Concurrent Output ==
+
+UC -> OUT: send(greeting)
+activate OUT
+
+OUT -> OUT: Launch coroutines
+note right
+  Concurrent execution:
+  - Console output
+  - File output
+end note
+
+par Console Output
+    OUT -> OUT: ConsoleAdapter.send()
+    note right: println(message)
+else File Output
+    OUT -> OUT: FileAdapter.send()
+    note right: withContext(Dispatchers.IO)\nappend to file
+end
+
+OUT --> UC: Either.Right(Unit)
+deactivate OUT
+
+UC --> CLI: Either.Right(GreetingResult)
+deactivate UC
+
+CLI --> CR: 0 (success)
+deactivate CLI
+
+CR --> App: 0
+deactivate CR
+
+== Graceful Shutdown ==
+
+App -> App: cleanup()
+note right: Cancel coroutines\nRelease resources
+
+App --> Main: exitCode
+deactivate App
+
+Main -> Main: exitProcess(0)
+deactivate Main
+
+== Signal Handling ==
+
+note over App
+  If SIGTERM/SIGINT received:
+  1. 5-second grace period
+  2. Cancel running operations
+  3. Cleanup resources
+  4. Exit with code 130
+end note
+
+@enduml
