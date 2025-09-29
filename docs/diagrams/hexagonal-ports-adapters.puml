@@ -1,98 +1,117 @@
 @startuml hexagonal-ports-adapters
 !theme plain
 title Hexagonal Architecture - Ports and Adapters Pattern
+caption Shows how the application core is isolated from external concerns through ports and adapters
 
 skinparam component {
     BackgroundColor<<Core>> #FFE5B4
-    BackgroundColor<<Port>> #B4E5FF
-    BackgroundColor<<Adapter>> #E5B4FF
-    BackgroundColor<<External>> #D3D3D3
+    BackgroundColor<<Port>> #87CEEB
+    BackgroundColor<<Adapter>> #98FB98
+    BackgroundColor<<External>> #FFB6C1
+    BorderColor Black
+    FontSize 12
+}
+
+skinparam interface {
+    BackgroundColor #87CEEB
     BorderColor Black
 }
 
-' Center hexagon (Domain + Application)
-component "Domain Core" as Core <<Core>> {
-    [Domain Models]
-    [Business Rules]
-    [Domain Services]
+' Center hexagon representing the application core
+package "Application Core" <<Core>> {
+    
+    package "Use Cases" {
+        [CreateGreetingUseCase] as usecase
+        [CreateBatchGreetingsUseCase] as batch
+    }
+    
+    package "Domain" {
+        [PersonName] as domain1
+        [GreetingService] as domain2
+        [GreetingPolicy] as domain3
+        [DomainError] as domain4
+    }
+    
+    usecase --> domain2
+    usecase --> domain1
+    batch --> usecase
 }
 
-component "Application Layer" as App <<Core>> {
-    [Use Cases]
-    [Application Services]
+' Input Ports (Driving/Primary)
+package "Input Ports" <<Port>> {
+    interface "CreateGreetingInputPort" as input_port
 }
 
-' Input Ports (Driving Side - Left)
-interface "CreateOrderUseCase" as CreateOrderPort <<Port>>
-interface "GetCustomerUseCase" as GetCustomerPort <<Port>>
-interface "ProcessPaymentUseCase" as ProcessPaymentPort <<Port>>
+' Output Ports (Driven/Secondary)
+package "Output Ports" <<Port>> {
+    interface "OutputPort" as output_port
+    interface "ErrorOutputPort" as error_port
+    interface "GreetingService" as service_port
+}
 
-' Output Ports (Driven Side - Right)
-interface "CustomerRepository" as CustomerRepoPort <<Port>>
-interface "OrderRepository" as OrderRepoPort <<Port>>
-interface "PaymentGateway" as PaymentPort <<Port>>
-interface "NotificationService" as NotificationPort <<Port>>
-interface "EventPublisher" as EventPort <<Port>>
+' Input Adapters (Driving/Primary)
+package "Input Adapters" <<Adapter>> {
+    [PureAsyncCli] as cli_adapter
+    note right : Future adapters:\n- REST Controller\n- GraphQL Resolver\n- gRPC Service
+}
 
-' Input Adapters (Primary/Driving Adapters - Left)
-component "REST Controller" as RestAdapter <<Adapter>>
-component "GraphQL Resolver" as GraphQLAdapter <<Adapter>>
-component "CLI Command" as CLIAdapter <<Adapter>>
-component "Message Consumer" as MessageAdapter <<Adapter>>
-
-' Output Adapters (Secondary/Driven Adapters - Right)
-component "JPA Repository" as JPAAdapter <<Adapter>>
-component "MongoDB Repository" as MongoAdapter <<Adapter>>
-component "Stripe Adapter" as StripeAdapter <<Adapter>>
-component "SendGrid Adapter" as EmailAdapter <<Adapter>>
-component "Kafka Publisher" as KafkaAdapter <<Adapter>>
+' Output Adapters (Driven/Secondary)
+package "Output Adapters" <<Adapter>> {
+    
+    package "Message Output" {
+        [ConsoleOutputAdapter] as console
+        [FileOutputAdapter] as file
+        [BufferedFileOutputAdapter] as buffer
+        [CompositeOutputAdapter] as composite
+    }
+    
+    package "Error Output" {
+        [ConsoleErrorOutputAdapter] as error_console
+    }
+    
+    package "Service Implementations" {
+        [DefaultGreetingService] as greeting_impl
+    }
+}
 
 ' External Systems
-database "PostgreSQL" as Postgres <<External>>
-database "MongoDB" as Mongo <<External>>
-cloud "Stripe API" as Stripe <<External>>
-cloud "SendGrid API" as SendGrid <<External>>
-queue "Kafka" as Kafka <<External>>
+package "External Systems" <<External>> {
+    [User Terminal] as terminal
+    [File System] as filesystem
+    [System.out] as stdout
+    [System.err] as stderr
+}
 
-' Connect Input Adapters to Input Ports
-RestAdapter --> CreateOrderPort : calls
-RestAdapter --> GetCustomerPort : calls
-GraphQLAdapter --> CreateOrderPort : calls
-CLIAdapter --> ProcessPaymentPort : calls
-MessageAdapter --> CreateOrderPort : calls
+' Connections - Input Side
+cli_adapter --> input_port : uses
+usecase ..|> input_port : implements
 
-' Connect Use Cases to Core
-CreateOrderPort <|.. [Use Cases] : implements
-GetCustomerPort <|.. [Use Cases] : implements
-ProcessPaymentPort <|.. [Use Cases] : implements
+' Connections - Output Side
+usecase --> output_port : uses
+usecase --> error_port : uses
+usecase --> service_port : uses
 
-' Connect Core to Output Ports
-[Use Cases] --> CustomerRepoPort : uses
-[Use Cases] --> OrderRepoPort : uses
-[Use Cases] --> PaymentPort : uses
-[Application Services] --> NotificationPort : uses
-[Application Services] --> EventPort : uses
+console ..|> output_port : implements
+file ..|> output_port : implements
+buffer ..|> output_port : implements
+composite ..|> output_port : implements
+error_console ..|> error_port : implements
+greeting_impl ..|> service_port : implements
 
-' Connect Output Adapters to Output Ports
-CustomerRepoPort <|.. JPAAdapter : implements
-OrderRepoPort <|.. MongoAdapter : implements
-PaymentPort <|.. StripeAdapter : implements
-NotificationPort <|.. EmailAdapter : implements
-EventPort <|.. KafkaAdapter : implements
+' External connections
+terminal --> cli_adapter : commands
+console --> stdout : writes
+error_console --> stderr : writes
+file --> filesystem : writes
+buffer --> filesystem : writes
 
-' Connect Output Adapters to External Systems
-JPAAdapter --> Postgres : uses
-MongoAdapter --> Mongo : uses
-StripeAdapter --> Stripe : calls
-EmailAdapter --> SendGrid : calls
-KafkaAdapter --> Kafka : publishes to
-
-note top
-    **Hexagonal Architecture**
-    • Core business logic is isolated in the center
-    • Ports define interfaces for external communication
-    • Adapters implement ports to connect to external systems
-    • Dependencies always point inward
+' Hexagon visualization (decorative)
+note as HexNote
+<b>Hexagonal Architecture Benefits:</b>
+• Testability - swap real adapters for test doubles
+• Flexibility - add new adapters without changing core
+• Isolation - business logic independent of infrastructure
+• Portability - core can run anywhere
 end note
 
 @enduml

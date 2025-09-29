@@ -1,118 +1,167 @@
 # Kotlin Hybrid Architecture Template Documentation
 
-Welcome to the comprehensive documentation for the Kotlin Hybrid Architecture Template. This template provides a production-ready foundation for building maintainable, testable, and scalable Kotlin applications using a powerful hybrid of Domain-Driven Design (DDD), Clean Architecture, Hexagonal Architecture, and the Dependency Inversion Principle (DIP).
+**Version:** 1.0.0  
+**Date:** January 2025  
+**License:** BSD-3-Clause  
+**Copyright:** © 2025 Michael Gardner, A Bit of Help, Inc.  
+**Authors:** Michael Gardner  
+**Status:** Released
 
-## 🎯 What Makes This Template Special
+Welcome to the documentation hub for the Kotlin Hybrid Architecture Template. This template provides a battle-tested foundation for building enterprise-grade Kotlin applications using proven architectural patterns.
 
-- **Battle-tested Architecture**: Combines the best principles from DDD, Clean, and Hexagonal architectures
-- **Automated Enforcement**: ArchUnit tests ensure architectural boundaries are respected
-- **Production Ready**: Includes error handling, testing, and build configurations
-- **Clear Examples**: Every pattern is demonstrated with practical code examples
-- **Visual Documentation**: Architecture diagrams help understand the system design
+## What You'll Learn
 
-## 📚 Documentation Structure
+This documentation will help you understand:
+- How to structure scalable applications
+- Why certain architectural decisions matter
+- When to use different patterns
+- How to avoid common pitfalls
 
-### 🚀 Getting Started
+## Documentation Overview
 
-- **[Hybrid Architecture Guide](guides/hybrid_architecture_guide.md)** - 📖 **Start Here!** Comprehensive guide explaining DDD, Clean, Hexagonal, and DIP principles
+### 🎯 Start Here
 
-### 📖 Comprehensive Layer Documentation
-In-depth explanations of each architectural layer:
+If you're new to the template, follow this path:
 
-- **[Architecture Overview](guides/architecture-overview.md)** - Complete guide to the hybrid architecture
-- **[Domain Layer](guides/domain-layer.md)** - Entities, value objects, services, and policies explained
-- **[Application Layer](guides/application-layer.md)** - Use cases, ports, and orchestration patterns
-- **[Infrastructure Layer](guides/infrastructure-layer.md)** - Adapters, implementations, and technical concerns
-- **[Presentation Layer](guides/presentation-layer.md)** - User interfaces, controllers, and view models
-- **[Bootstrap Module](guides/bootstrap-module.md)** - Composition root and application startup
+1. **[Quick Start Guide](../README.md)** - Get up and running in 5 minutes
+2. **[Architecture Overview](guides/architecture-overview.md)** - Understand the big picture
+3. **[Hybrid Architecture Guide](guides/hybrid_architecture_guide.md)** - Deep dive into architectural patterns
 
-### 📦 Module Documentation
-Technical guides and README files for each module:
+### 📚 Core Concepts
 
-- **[Domain Module](../domain/README.md)** - Core business logic and domain models
-- **[Application Module](../application/README.md)** - Use cases and application orchestration
-- **[Infrastructure Module](../infrastructure/README.md)** - Technical adapters and implementations
-- **[Presentation Module](../presentation/README.md)** - REST APIs, CLI, and user interfaces
-- **[Architecture Tests](../architecture-tests/README.md)** - Automated architecture verification with ArchUnit
+Learn about each architectural layer and its responsibilities:
 
-### 📊 Architecture Diagrams
+- **[Domain Layer Guide](guides/domain-layer.md)**  
+  The heart of your application - pure business logic with zero dependencies
 
-Visual representations help understand the architecture better. All diagrams are available in the [`diagrams/`](diagrams/) directory:
+- **[Application Layer Guide](guides/application-layer.md)**  
+  Orchestrates business logic and defines boundaries
 
-#### System Design
-- **[Architecture Overview](diagrams/architecture-overview.svg)** - Complete system view showing all layers and their relationships
-- **[Layer Dependencies](diagrams/layer-dependencies.svg)** - Clean Architecture dependency rules with forbidden dependencies marked
-- **[Hexagonal Ports & Adapters](diagrams/hexagonal-ports-adapters.svg)** - Input/output ports with their adapter implementations
+- **[Infrastructure Layer Guide](guides/infrastructure-layer.md)**  
+  Connects your application to the outside world
 
-#### Layer Class Diagrams
-- **[Domain Layer Classes](diagrams/domain-layer-class.svg)** - Value objects, services, and policies with their relationships
-- **[Application Layer Classes](diagrams/application-layer-class.svg)** - Use cases, input/output ports, and DTOs
-- **[Infrastructure Layer Classes](diagrams/infrastructure-layer-class.svg)** - Adapter implementations for ports
-- **[Presentation Layer Classes](diagrams/presentation-layer-class.svg)** - CLI factory and configuration
-- **[Bootstrap Module Classes](diagrams/bootstrap-module-class.svg)** - Composition root and application startup
+- **[Presentation Layer Guide](guides/presentation-layer.md)**  
+  How users interact with your application
 
-#### Flow Diagrams
-- **[Greeting Flow Sequence](diagrams/greeting-flow-sequence.svg)** - Complete flow from user input to output
-- **[Greeting Flow Async Sequence](diagrams/greeting-flow-sequence-async.svg)** - Async/concurrent flow with signal handling
-- **[Error Handling Sequence](diagrams/error-handling-sequence.svg)** - Error propagation and transformation across layers
-- **[Use Case Flow](diagrams/use-case-flow.svg)** - Sequence diagram showing a complete order creation flow
-- **[Error Handling Flow](diagrams/error-handling-flow.svg)** - Error types and transformation between layers
+- **[Bootstrap Module Guide](guides/bootstrap-module.md)**  
+  Wires everything together at startup
 
-#### Implementation Details
-- **[Domain Model](diagrams/domain-model.svg)** - Entities, value objects, and domain services with relationships
-- **[Package Structure](diagrams/package-structure.svg)** - Detailed module and package organization
+### 🛠️ Module Documentation
 
-## 🔗 Quick Reference Links
+Detailed technical documentation for each module:
 
-### Essential Files
-- **[CLAUDE-Kotlin.md](../CLAUDE-Kotlin.md)** - Comprehensive code generation and maintenance criteria
-- **[README.md](../README.md)** - Project overview and quick start instructions
-- **[Makefile](../Makefile)** - Build automation and common tasks
+- **[Domain Module](../domain/README.md)** - Business entities and rules
+- **[Application Module](../application/README.md)** - Use cases and workflows
+- **[Infrastructure Module](../infrastructure/README.md)** - Database, file system, APIs
+- **[Presentation Module](../presentation/README.md)** - User interfaces
+- **[Architecture Tests](../architecture-tests/README.md)** - Automated rule enforcement
 
-### Key Concepts at a Glance
+### 📊 Visual Learning
 
-#### 🎯 The Four Pillars
+Architecture diagrams help visualize the system design:
 
-1. **Domain-Driven Design (DDD)**
-   - Business logic is the heart of the application
-   - Rich domain models with behavior
-   - Ubiquitous language shared with domain experts
+#### System Overview
+- **[Architecture Overview](diagrams/architecture-overview.svg)** - Bird's eye view of the system
+- **[Layer Dependencies](diagrams/layer-dependencies.svg)** - How layers connect
+- **[Package Structure](diagrams/package-structure.svg)** - Module organization
 
-2. **Clean Architecture**
-   - Dependencies point inward toward the domain
-   - Business logic is independent of frameworks
-   - UI, database, and external services are plugins
+#### Detailed Class Diagrams
+- **[Domain Model](diagrams/domain-model.svg)** - Core business objects
+- **[Application Classes](diagrams/application-layer-class.svg)** - Use cases and ports
+- **[Infrastructure Classes](diagrams/infrastructure-layer-class.svg)** - Adapter implementations
 
-3. **Hexagonal Architecture**
-   - Ports define what the application needs
-   - Adapters implement how it's provided
-   - Easy to swap implementations
+#### Flow Sequences
+- **[Request Flow](diagrams/greeting-flow-sequence.svg)** - Trace a request through layers
+- **[Async Flow](diagrams/greeting-flow-sequence-async.svg)** - Concurrent operations
+- **[Error Handling](diagrams/error-handling-sequence.svg)** - How errors propagate
 
-4. **Dependency Inversion Principle (DIP)**
-   - Depend on abstractions, not concretions
-   - High-level modules define interfaces
-   - Low-level modules implement them
+## Learning Path
 
-#### 🏗️ Layer Responsibilities
+### For Beginners
 
-| Layer | Purpose | Dependencies | Examples |
-|-------|---------|--------------|----------|
-| **Domain** | Core business logic | None | Entities, Value Objects, Domain Services |
-| **Application** | Use case orchestration | Domain only | Use Cases, Application Services, DTOs |
-| **Infrastructure** | Technical implementations | Domain & Application | Database, APIs, Message Queues |
-| **Presentation** | User interfaces | Application only | REST Controllers, CLI, Web UI |
+Start with understanding the basics:
 
-## 🚦 Getting Started Path
+1. **Read**: [Architecture Overview](guides/architecture-overview.md)
+2. **Try**: Build and run the sample application
+3. **Experiment**: Modify the greeting message
+4. **Learn**: Trace the code changes through layers
 
-1. **First Time?** Start with the [Hybrid Architecture Guide](guides/hybrid_architecture_guide.md)
-2. **Ready to Code?** Check out the [README](../README.md) for quick start instructions
-3. **Understanding Structure?** Review the module documentation above
-4. **Need Visual Help?** Browse the architecture diagrams
+### For Intermediate Developers
 
-## 📝 License
+Deepen your understanding:
 
-This template is open source and available under the BSD 3-Clause License.
+1. **Study**: [Domain Layer Guide](guides/domain-layer.md)
+2. **Practice**: Add a new value object
+3. **Implement**: Create a new use case
+4. **Test**: Write comprehensive tests
+
+### For Advanced Developers
+
+Master the architecture:
+
+1. **Analyze**: Review architecture tests
+2. **Extend**: Add a new infrastructure adapter
+3. **Optimize**: Implement caching strategies
+4. **Share**: Document your patterns
+
+## Common Questions
+
+### Why This Architecture?
+
+Traditional architectures often force trade-offs. This hybrid approach combines:
+- **DDD**: Rich business modeling
+- **Clean Architecture**: Clear boundaries
+- **Hexagonal**: Flexible adapters
+
+### How Do I Start?
+
+1. Clone the repository
+2. Run `./gradlew build`
+3. Explore the code structure
+4. Make small changes and observe
+
+### Where Can I Get Help?
+
+- **Documentation**: Start with guides in `/docs/guides/`
+- **Examples**: Study the existing code
+- **Tests**: Learn from test implementations
+- **Standards**: Review `/standards/Claude_Kotlin.md`
+
+## Best Practices
+
+### Always Remember
+
+1. **Domain First**: Start with business logic
+2. **Test Everything**: Write tests as you go
+3. **Keep It Simple**: Don't over-engineer
+4. **Document Why**: Explain decisions, not just code
+
+### Common Mistakes to Avoid
+
+1. **Skipping Layers**: Don't call infrastructure from presentation
+2. **Anemic Models**: Put behavior in domain objects
+3. **Framework Coupling**: Keep frameworks at the edges
+4. **Missing Tests**: Test each layer appropriately
+
+## Next Steps
+
+Ready to dive deeper? Here's what to explore:
+
+1. **[Hybrid Architecture Guide](guides/hybrid_architecture_guide.md)** - Complete architectural patterns
+2. **[Bootstrap Module](guides/bootstrap-module.md)** - How the application starts
+3. **[Architecture Tests](../architecture-tests/README.md)** - Automated rule enforcement
+
+## Contributing
+
+Want to improve the documentation? We welcome contributions:
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your improvements
+4. Submit a pull request
+
+Remember: Good documentation helps everyone learn faster!
 
 ---
 
-*This documentation is continuously improved. If you find any issues or have suggestions, please contribute to the project.*
+*This documentation is a living guide. It grows with community contributions and feedback.*

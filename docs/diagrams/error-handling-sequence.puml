@@ -1,133 +1,207 @@
 @startuml error-handling-sequence
 !theme plain
-title Error Handling Flow - Sequence Diagram
+title Error Handling Flow - Railway-Oriented Programming
+caption Demonstrates functional error handling with Either type and error propagation patterns
 
-actor User
-participant "CLI" as CLI
-participant "CreateGreeting\nUseCase" as UC
-participant "PersonName" as PN
-participant "DefaultGreeting\nService" as GS
-participant "ConsoleOutput\nAdapter" as OUT
+skinparam participant {
+    BackgroundColor<<Actor>> #F0F8FF
+    BackgroundColor<<Presentation>> #B4FFE5
+    BackgroundColor<<Application>> #B4E5FF
+    BackgroundColor<<Domain>> #FFE5B4
+    BackgroundColor<<Infrastructure>> #E5B4FF
+    BorderColor Black
+}
+
+skinparam note {
+    BackgroundColor #FFE4E1
+    BorderColor #8B0000
+}
+
+actor "User" as User <<Actor>>
+participant "PureAsyncCli" as CLI <<Presentation>>
+participant "CreateGreetingUseCase" as UseCase <<Application>>
+participant "PersonName" as Name <<Domain>>
+participant "DefaultGreetingService" as Service <<Infrastructure>>
+participant "ConsoleOutputAdapter" as Output <<Infrastructure>>
+participant "ConsoleErrorOutputAdapter" as ErrorOutput <<Infrastructure>>
 
 == Validation Error Flow ==
 
-User -> CLI: Invalid name\n"123!@#"
+User -> CLI: Invalid name "123!@#"
 activate CLI
 
-CLI -> UC: execute(command)
-activate UC
+CLI -> CLI: Create command
+note right of CLI: CreateGreetingCommand\n(name="123!@#")
 
-UC -> PN: create("123!@#")
-activate PN
+CLI -> UseCase: execute(command)
+activate UseCase
 
-PN -> PN: Validate
-note right: Fails pattern match\n(only letters, spaces,\nhyphens, apostrophes)
+UseCase -> Name: of("123!@#")
+activate Name
 
-PN --> UC: Either.Left(\nDomainError.ValidationError)
-deactivate PN
+Name -> Name: Validate against business rules
+note right of Name
+    Validation fails:
+    • Contains numbers: "123"
+    • Contains symbols: "!@#"
+    • Pattern: ^[a-zA-Z\s'-]+$
+end note
 
-UC -> UC: Transform error
-note right: Wrap in\nApplicationError.\nDomainErrorWrapper
+Name --> UseCase: Either.Left(\nDomainError.ValidationError(\n  field="name",\n  message="Name can only contain letters, spaces, hyphens, and apostrophes"\n))
+deactivate Name
 
-UC --> CLI: Either.Left(\nApplicationError)
-deactivate UC
+UseCase -> UseCase: Transform domain error
+note right of UseCase: ApplicationError.DomainErrorWrapper(\n  domainError=ValidationError(...)\n)
 
-CLI -> CLI: Format error
-note right: Extract userMessage:\n"name: Name can only\ncontain letters..."
+UseCase -> ErrorOutput: sendError("Validation failed: Invalid name format")
+activate ErrorOutput
+ErrorOutput -> ErrorOutput: Write to System.err
+ErrorOutput --> UseCase: Either.Right(Unit)
+deactivate ErrorOutput
 
-CLI -> User: Error: Invalid input:\nname: Name can only contain...
+UseCase --> CLI: Either.Left(\nApplicationError.DomainErrorWrapper)
+deactivate UseCase
+
+CLI -> CLI: Extract user message
+note right of CLI: domainError.userMessage:\n"Name can only contain letters, spaces,\nhyphens, and apostrophes"
+
+CLI --> User: Error: Invalid input: Name can only contain letters, spaces, hyphens, and apostrophes
 deactivate CLI
 
 == Business Rule Violation ==
 
-User -> CLI: Very long greeting
+User -> CLI: Empty name ""
 activate CLI
 
-CLI -> UC: execute(command)
-activate UC
+CLI -> UseCase: execute(command)
+activate UseCase
 
-UC -> PN: create(name)
-activate PN
-PN --> UC: Either.Right(PersonName)
-deactivate PN
+UseCase -> Name: of("")
+activate Name
 
-UC -> GS: createGreeting(name)
-activate GS
+Name -> Name: Check if blank
+note right of Name: isEmpty() || isBlank() → true
 
-GS -> GS: Generate greeting
-GS -> GS: Check length > 200
+Name --> UseCase: Either.Left(\nDomainError.ValidationError(\n  field="name",\n  message="Name cannot be blank"\n))
+deactivate Name
 
-GS --> UC: Either.Left(\nBusinessRuleViolation)
-deactivate GS
+UseCase -> ErrorOutput: sendError("Business rule violation: Name cannot be blank")
+activate ErrorOutput
+ErrorOutput --> UseCase: Either.Right(Unit)
+deactivate ErrorOutput
 
-UC -> UC: Wrap error
+UseCase --> CLI: Either.Left(\nApplicationError.DomainErrorWrapper)
+deactivate UseCase
 
-UC --> CLI: Either.Left(\nApplicationError)
-deactivate UC
-
-CLI -> User: Error: Invalid input:\nMaxGreetingLength - Greeting\nexceeds maximum length
+CLI --> User: Error: Invalid input: Name cannot be blank
 deactivate CLI
 
-== Infrastructure Error ==
+== Infrastructure Failure ==
 
-User -> CLI: Normal request
+User -> CLI: Valid name "Alice"
 activate CLI
 
-CLI -> UC: execute(command)
-activate UC
+CLI -> UseCase: execute(command)
+activate UseCase
 
-UC -> PN: create(name)
-activate PN
-PN --> UC: Either.Right(PersonName)
-deactivate PN
+UseCase -> Name: of("Alice")
+activate Name
+Name --> UseCase: Either.Right(PersonName("Alice"))
+deactivate Name
 
-UC -> GS: createGreeting(name)
-activate GS
-GS --> UC: Either.Right(greeting)
-deactivate GS
+UseCase -> Service: createGreeting(personName, format)
+activate Service
+Service --> UseCase: Either.Right("Hello World from Alice!")
+deactivate Service
 
-UC -> OUT: send(greeting)
-activate OUT
+UseCase -> Output: send("Hello World from Alice!")
+activate Output
 
-OUT -> OUT: Try to print
-note right: SecurityException:\nSystem.out redirected
+Output -> Output: Attempt write to System.out
+note right of Output
+    Scenario: Output stream closed
+    or security manager blocks access
+end note
 
-OUT -> OUT: Catch exception
-note right: Transform to\nApplicationError.\nOutputError
+Output -> Output: Handle IOException
+note right of Output: Transform to ApplicationError:\nOutputError(\n  "Failed to write greeting to console"\n)
 
-OUT --> UC: Either.Left(\nOutputError)
-deactivate OUT
+Output --> UseCase: Either.Left(\nApplicationError.OutputError)
+deactivate Output
 
-UC --> CLI: Either.Left(\nApplicationError)
-deactivate UC
+UseCase -> ErrorOutput: sendError("Failed to deliver greeting: Console output unavailable")
+activate ErrorOutput
+ErrorOutput --> UseCase: Either.Right(Unit)
+deactivate ErrorOutput
 
-CLI -> User: Error: Failed to deliver\ngreeting: Security error...
+UseCase --> CLI: Either.Left(\nApplicationError.OutputError)
+deactivate UseCase
+
+CLI --> User: Error: Failed to deliver greeting: Console output unavailable
 deactivate CLI
 
-== Unexpected Error ==
+== Successful Flow (Happy Path) ==
 
-User -> CLI: Request
+User -> CLI: Valid name "Bob"
 activate CLI
 
-CLI -> CLI: Unexpected exception
-note right: Not caught by\nEither flow
+CLI -> UseCase: execute(command)
+activate UseCase
 
-CLI -> CLI: Catch all handler
-note right: catch (e: Exception)
+UseCase -> Name: of("Bob")
+activate Name
+Name --> UseCase: Either.Right(PersonName("Bob"))
+deactivate Name
 
-CLI -> User: Unexpected error:\n[exception details]
+UseCase -> Service: createGreeting(personName, format)
+activate Service
+Service --> UseCase: Either.Right("Hello World from Bob!")
+deactivate Service
+
+UseCase -> Output: send("Hello World from Bob!")
+activate Output
+Output -> Output: println("Hello World from Bob!")
+Output --> UseCase: Either.Right(Unit)
+deactivate Output
+
+UseCase --> CLI: Either.Right(\nGreetingResult(\n  greeting="Hello World from Bob!",\n  personName=PersonName("Bob"),\n  timestamp=Instant.now()\n))
+deactivate UseCase
+
+CLI --> User: Hello World from Bob!
+note right of CLI: Success! No error handling needed
+
 deactivate CLI
 
-== Error Transformation Chain ==
+== Error Type Hierarchy ==
 
-note over PN, OUT
-  Domain Layer: DomainError
-  ↓
-  Application Layer: ApplicationError.DomainErrorWrapper
-  ↓
-  Infrastructure: ApplicationError.OutputError
-  ↓
-  Presentation: User-friendly message
+note over UseCase, ErrorOutput
+    <b>Error Propagation Pattern:</b>
+    
+    <b>Domain Layer:</b>
+    • DomainError.ValidationError
+    • DomainError.BusinessRuleViolation
+    • DomainError.NotFound
+    
+    <b>Application Layer:</b>
+    • ApplicationError.DomainErrorWrapper
+    • ApplicationError.OutputError
+    • ApplicationError.UnexpectedError
+    
+    <b>Presentation Layer:</b>
+    • Extract user-friendly messages
+    • Log technical details
+    • Return appropriate exit codes
+end note
+
+== Railway-Oriented Programming ==
+
+note over CLI, Service
+    <b>Either<Error, Success> Pattern:</b>
+    • Operations either succeed with a value or fail with an error
+    • Errors are typed and carry context
+    • No exceptions thrown for business logic failures
+    • Composable error handling with flatMap/fold
+    • Clear separation between expected and unexpected errors
 end note
 
 @enduml

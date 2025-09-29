@@ -1,9 +1,9 @@
-/*
- * Kotlin Hybrid Architecture Template - Test Suite
- * Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
- * SPDX-License-Identifier: BSD-3-Clause
- * See LICENSE file in the project root.
- */
+////////////////////////////////////////////////////////////////////////////////
+// Kotlin Hybrid Architecture Template - Test Suite
+// Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE file in the project root.
+////////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.domain.value
 
@@ -13,45 +13,74 @@ import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
 
 /**
- * Test suite for PersonName value object.
+ * Unit tests for the PersonName value object.
  *
- * ## Testing Value Objects
- * Value objects need thorough testing because they:
- * - Enforce business rules through validation
- * - Are used throughout the application
- * - Represent core domain concepts
+ * ## Purpose
+ * This test suite validates the PersonName value object, which encapsulates name validation
+ * and business rules in our domain. Value objects are fundamental building blocks in
+ * Domain-Driven Design, ensuring data integrity at the domain level.
  *
- * ## Test Organization with Kotest
- * This uses Kotest's DescribeSpec style:
- * - `describe`: Groups related tests (like a test class)
- * - `context`: Sets up a scenario (like "when valid")
- * - `it`: Individual test case (like @Test method)
+ * ## What is Being Tested
+ * 1. **Validation Rules**: All name validation constraints (length, characters, format)
+ * 2. **Factory Methods**: Both create() and anonymous() factory methods
+ * 3. **Edge Cases**: Boundary conditions like minimum/maximum lengths
+ * 4. **Input Sanitization**: Whitespace trimming and normalization
+ * 5. **Value Class Semantics**: Equality, hashCode, and toString behavior
  *
- * ## What We Test
- * 1. **Valid Cases**: All acceptable inputs
- * 2. **Invalid Cases**: All validation rules
- * 3. **Edge Cases**: Boundaries and special values
- * 4. **Value Class Behavior**: equals, hashCode, toString
+ * ## Why These Tests Matter
+ * Value objects are the foundation of a robust domain model:
+ * - **Data Integrity**: Invalid data never enters the system
+ * - **Business Rules**: Name constraints are enforced consistently
+ * - **Type Safety**: PersonName can't be confused with raw strings
+ * - **Self-Documentation**: Tests document all valid/invalid name formats
+ * - **Refactoring Safety**: Changes to validation logic are caught immediately
  *
- * ## Testing Philosophy
- * - Test behavior, not implementation
- * - Use descriptive test names that explain the requirement
- * - Each test should verify one thing
- * - Tests should be independent
+ * ## Testing Strategy
+ * - **Positive Testing**: Verify all valid name formats are accepted
+ * - **Negative Testing**: Ensure all invalid inputs are rejected with proper errors
+ * - **Boundary Testing**: Test exact limits (1 char minimum, 100 char maximum)
+ * - **Equivalence Partitioning**: Group similar test cases (valid chars, invalid chars)
+ * - **Property Testing**: Verify value object properties (immutability, equality)
  *
- * ## Example Test Pattern
- * ```kotlin
- * it("should [expected behavior] when [condition]") {
- *     // Given (setup)
- *     val input = "test data"
+ * ## Key Patterns Used
+ * 1. **Value Object Pattern**: Immutable objects with validation
+ * 2. **Factory Pattern**: Static factory methods instead of constructors
+ * 3. **Smart Constructor**: Validation happens during creation
+ * 4. **Functional Error Handling**: Using Either instead of exceptions
+ * 5. **Type-Safe Domain Modeling**: PersonName instead of String
  *
- *     // When (action)
- *     val result = PersonName.create(input)
+ * ## Educational Value
+ * This test demonstrates several important concepts:
+ * - **Value Object Testing**: How to thoroughly test validation and behavior
+ * - **Factory Method Testing**: Testing static creation methods
+ * - **Error-First Design**: Testing error cases is as important as success cases
+ * - **Domain Invariants**: Rules that must always be true (e.g., no empty names)
+ * - **Test as Specification**: Tests define what constitutes a valid name
  *
- *     // Then (assertion)
- *     result.isRight() shouldBe true
- * }
- * ```
+ * ## Business Rules Encoded
+ * The tests document these business requirements:
+ * 1. Names must be 1-100 characters after trimming
+ * 2. Only letters, spaces, hyphens, and apostrophes allowed
+ * 3. Leading/trailing whitespace is automatically removed
+ * 4. "Anonymous" is a special case with its own factory method
+ * 5. Empty or blank names are rejected
+ *
+ * ## Common Pitfalls to Avoid
+ * - Don't test implementation details (e.g., regex patterns)
+ * - Don't skip edge cases - they often reveal bugs
+ * - Don't assume trimming - test it explicitly
+ * - Don't forget special characters used in real names
+ * - Don't test value objects as if they were entities
+ *
+ * ## Integration Notes
+ * PersonName is used throughout the domain:
+ * - GreetingPolicy uses name length for format selection
+ * - GreetingService accepts PersonName for type safety
+ * - Commands and queries use PersonName for validation
+ *
+ * @see PersonName The value object being tested
+ * @see DomainError.ValidationError The error type returned for invalid names
+ * @see GreetingPolicy How PersonName is used in business logic
  */
 class PersonNameTest : DescribeSpec({
 

@@ -1,5 +1,12 @@
 # Hybrid Architecture Guide
 
+**Version:** 1.0.0
+**Date:** January 2025
+**SPDX-License-Identifier:** BSD-3-Clause
+**License File:** See LICENSE file in the project root.
+**Copyright:** © 2025 Michael Gardner, A Bit of Help, Inc.
+**Authors:** Michael Gardner
+**Status:** Released
 This guide explains the architectural principles behind this template and how Domain-Driven Design (DDD), Clean Architecture, Hexagonal Architecture, and the Dependency Inversion Principle (DIP) work together to create a maintainable, testable, and scalable application.
 
 ## Table of Contents

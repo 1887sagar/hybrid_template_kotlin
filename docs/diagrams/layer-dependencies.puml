@@ -1,22 +1,135 @@
 @startuml layer-dependencies
 !theme plain
-title Layer Dependencies - Clean Architecture Rules
+title Layer Dependencies - Dependency Rule Enforcement
+caption Dependencies point inward toward the domain, with bootstrap as the only exception
 
-package "Domain Layer" as Domain {
+skinparam component {
+    BackgroundColor<<Domain>> #FFE5B4
+    BackgroundColor<<Application>> #B4E5FF
+    BackgroundColor<<Infrastructure>> #E5B4FF
+    BackgroundColor<<Presentation>> #B4FFE5
+    BackgroundColor<<Bootstrap>> #FFCCCC
+    BorderColor Black
+    FontSize 12
 }
 
-package "Application Layer" as Application {
+skinparam arrow {
+    Color Blue
+    FontColor Blue
 }
 
-package "Infrastructure Layer" as Infrastructure {
+skinparam note {
+    BackgroundColor #FFFFCC
+    BorderColor #666666
 }
 
-package "Presentation Layer" as Presentation {
+' Domain Layer (Center)
+package "Domain Layer" <<Domain>> {
+    [PersonName]
+    [GreetingService Interface]
+    [GreetingPolicy]
+    [GreetingFormat]
+    [DomainError]
+    
+    note right : • No external dependencies\n• Pure business logic\n• Most stable layer
 }
 
-Presentation --> Application : uses
-Application --> Domain : uses
-Infrastructure --> Domain : implements
-Infrastructure --> Application : implements
+' Application Layer
+package "Application Layer" <<Application>> {
+    [CreateGreetingUseCase]
+    [CreateBatchGreetingsUseCase]
+    [CreateGreetingInputPort]
+    [OutputPort]
+    [ErrorOutputPort]
+    [ApplicationError]
+    
+    note left : • Orchestrates business logic\n• Defines boundaries (ports)\n• Depends only on Domain
+}
+
+' Infrastructure Layer
+package "Infrastructure Layer" <<Infrastructure>> {
+    [DefaultGreetingService]
+    [ConsoleOutputAdapter]
+    [ConsoleErrorOutputAdapter]
+    [FileOutputAdapter]
+    [BufferedFileOutputAdapter]
+    [CompositeOutputAdapter]
+    
+    note bottom : • Technical implementations\n• Implements domain interfaces\n• Implements application ports
+}
+
+' Presentation Layer
+package "Presentation Layer" <<Presentation>> {
+    [PureAsyncCli]
+    [AsyncCliRunner]
+    [CliFactory]
+    [PresentationConfig]
+    
+    note top : • User interface\n• Calls use cases\n• Formats output
+}
+
+' Bootstrap Layer (Special)
+package "Bootstrap Module" <<Bootstrap>> {
+    [AsyncEntryPoint]
+    [CompositionRoot]
+    [SecureArgParser]
+    [AppConfig]
+    
+    note right : • Only layer that knows all types\n• Wires dependencies\n• Entry point
+}
+
+' Dependencies (allowed)
+Presentation --> Application : ✓ uses ports
+Application --> Domain : ✓ uses domain logic
+Infrastructure --> Domain : ✓ implements domain interfaces
+Infrastructure --> Application : ✓ implements ports
+
+' Bootstrap dependencies (special case)
+Bootstrap ..> Domain : ✓ creates
+Bootstrap ..> Application : ✓ creates
+Bootstrap ..> Infrastructure : ✓ creates
+Bootstrap ..> Presentation : ✓ creates
+
+' Forbidden dependencies (would be shown in red if they existed)
+' Domain -[#Red]-> Application : ❌ FORBIDDEN
+' Domain -[#Red]-> Infrastructure : ❌ FORBIDDEN
+' Domain -[#Red]-> Presentation : ❌ FORBIDDEN
+' Application -[#Red]-> Infrastructure : ❌ FORBIDDEN
+' Application -[#Red]-> Presentation : ❌ FORBIDDEN
+
+note as DependencyRules
+    <b>Dependency Rules:</b>
+    
+    <b>✅ Allowed Dependencies:</b>
+    • Outer layers → Inner layers (toward domain)
+    • Implementation → Interface (any layer)
+    • Bootstrap → All layers (for wiring only)
+    
+    <b>❌ Forbidden Dependencies:</b>
+    • Inner layers → Outer layers
+    • Domain → Any other layer
+    • Application → Infrastructure/Presentation
+    • Cross-layer jumps (skip intermediate layers)
+    
+    <b>Benefits:</b>
+    • Stable core (domain changes least)
+    • Testable (mock outer dependencies)
+    • Flexible (swap implementations)
+    • Independent (deploy layers separately)
+end note
+
+note as PortsAndAdapters
+    <b>Ports and Adapters Pattern:</b>
+    
+    • <b>Ports</b> = Interfaces defined by inner layers
+    • <b>Adapters</b> = Implementations in outer layers
+    
+    <b>Input Ports:</b> Application defines, Presentation uses
+    <b>Output Ports:</b> Application defines, Infrastructure implements
+    <b>Domain Interfaces:</b> Domain defines, Infrastructure implements
+    
+    This ensures dependency inversion:
+    High-level modules don't depend on low-level modules
+end note
 
 @enduml

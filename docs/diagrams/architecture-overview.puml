@@ -1,6 +1,7 @@
 @startuml architecture-overview
 !theme plain
-title Kotlin Hybrid Architecture - Overview
+title Hybrid Architecture Template - System Overview
+caption A modern Kotlin architecture combining Hexagonal, Clean, and Vertical Slice patterns
 
 skinparam componentStyle rectangle
 skinparam component {
@@ -10,74 +11,119 @@ skinparam component {
     BackgroundColor<<Presentation>> #B4FFE5
     BackgroundColor<<Bootstrap>> #FFCCCC
     BorderColor Black
-    FontSize 12
+    FontSize 14
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFFCC
+    BorderColor #666666
 }
 
 package "Bootstrap Module" <<Bootstrap>> {
-    [Entry Point (main)]
-    [Composition Root]
-    [Configuration]
+    [AsyncEntryPoint] as entry
+    [CompositionRoot] as root
+    [SecureArgParser] as parser
+    [AppConfig] as config
+    
+    entry --> root : initializes
+    entry --> parser : parses args
+    parser --> config : creates
 }
 
 package "Presentation Layer" <<Presentation>> {
-    [CLI Factory]
-    [REST Controllers]
-    [GraphQL Resolvers]
-    [Web UI]
+    [PureAsyncCli] as cli
+    [AsyncCliRunner] as runner
+    [CliFactory] as factory
+    [PresentationConfig] as pconfig
+    
+    factory --> cli : creates
+    cli --> runner : uses
+    cli --> pconfig : configured by
 }
 
 package "Application Layer" <<Application>> {
-    [Use Cases]
-    [Input Ports]
-    [Output Ports]
-    [Application DTOs]
-    [Application Errors]
+    package "Ports" {
+        interface "CreateGreetingInputPort" as input
+        interface "OutputPort" as output
+        interface "ErrorOutputPort" as error
+    }
+    
+    package "Use Cases" {
+        [CreateGreetingUseCase] as usecase
+        [CreateBatchGreetingsUseCase] as batch
+    }
+    
+    package "DTOs" {
+        [CreateGreetingCommand] as cmd
+        [GreetingResult] as result
+        [ApplicationError] as apperror
+    }
+    
+    usecase ..|> input : implements
+    usecase --> output : sends messages
+    usecase --> error : sends errors
+    batch --> usecase : delegates to
 }
 
 package "Domain Layer" <<Domain>> {
-    [Value Objects]
-    [Domain Services]
-    [Domain Policies]
-    [Domain Errors]
-    [Service Interfaces]
+    package "Core Business" {
+        [PersonName] as name
+        [GreetingFormat] as format
+        [DomainError] as domerror
+    }
+    
+    package "Services" {
+        interface "GreetingService" as service
+        [GreetingPolicy] as policy
+    }
+    
+    service --> name : validates
+    service --> format : uses
+    policy --> format : determines
 }
 
 package "Infrastructure Layer" <<Infrastructure>> {
-    [Service Implementations]
-    [Output Adapters]
-    [Database Adapters]
-    [External API Clients]
-    [File System Adapters]
+    package "Service Implementations" {
+        [DefaultGreetingService] as impl
+    }
+    
+    package "Output Adapters" {
+        [ConsoleOutputAdapter] as console
+        [ConsoleErrorOutputAdapter] as cerror
+        [FileOutputAdapter] as file
+        [BufferedFileOutputAdapter] as buffer
+        [CompositeOutputAdapter] as composite
+    }
+    
+    impl ..|> service : implements
+    console ..|> output : implements
+    cerror ..|> error : implements
+    file ..|> output : implements
+    buffer ..|> output : implements
+    composite ..|> output : implements
 }
 
-' Dependencies - Presentation to Application
-[CLI Factory] --> [Input Ports] : uses
-[REST Controllers] --> [Input Ports] : uses
-[GraphQL Resolvers] --> [Input Ports] : uses
-[Web UI] --> [Input Ports] : uses
+' Main dependencies
+cli --> input : executes
+usecase --> service : uses
+usecase --> cmd : receives
+usecase --> result : returns
 
-' Dependencies - Application to Domain
-[Use Cases] ..|> [Input Ports] : implements
-[Use Cases] --> [Output Ports] : uses
-[Use Cases] --> [Value Objects] : creates
-[Use Cases] --> [Domain Services] : uses
-[Use Cases] --> [Service Interfaces] : uses
+' Bootstrap wiring (dashed lines for runtime creation)
+root ..> impl : creates
+root ..> console : creates
+root ..> cerror : creates
+root ..> usecase : creates
+root ..> factory : uses
 
-' Dependencies - Infrastructure implements ports
-[Service Implementations] ..|> [Service Interfaces] : implements
-[Output Adapters] ..|> [Output Ports] : implements
-[Database Adapters] ..|> [Service Interfaces] : implements
-[External API Clients] ..|> [Output Ports] : implements
+' Notes
+note top : Dependencies flow inward toward Domain Layer\nBootstrap is the only module that knows all concrete types
 
-' Bootstrap dependencies (special - can access all)
-[Composition Root] ..> [Service Implementations] : creates
-[Composition Root] ..> [Output Adapters] : creates
-[Composition Root] ..> [Use Cases] : creates
-[Composition Root] ..> [CLI Factory] : calls
-[Entry Point (main)] --> [Composition Root] : uses
+note right of "Domain Layer" : Pure business logic\nNo framework dependencies\nStable core of the system
 
-note top : All dependencies point inward toward the Domain Layer\nExcept Bootstrap Module which wires all concrete implementations
+note left of "Application Layer" : Orchestrates business logic\nDefines boundaries (ports)\nHandles cross-cutting concerns
 
-note right of "Bootstrap Module" : The only module that\nknows about all layers\nand concrete types
+note bottom of "Infrastructure Layer" : Technical implementations\nExternal system integrations\nAll I/O operations
 
 @enduml

@@ -1,9 +1,9 @@
-/*
- * Kotlin Hybrid Architecture Template - Test Suite
- * Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
- * SPDX-License-Identifier: BSD-3-Clause
- * See LICENSE file in the project root.
- */
+////////////////////////////////////////////////////////////////////////////////
+// Kotlin Hybrid Architecture Template - Test Suite
+// Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE file in the project root.
+////////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.infrastructure.adapter.output
 
@@ -18,58 +18,124 @@ import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
 
 /**
- * Test suite for FileOutputAdapter.
+ * Comprehensive test suite for FileOutputAdapter.
+ *
+ * ## Purpose
+ * This test suite validates the file output adapter, which provides reliable asynchronous
+ * file writing capabilities for persistent message storage. The adapter implements the
+ * OutputPort interface to enable applications to write messages to files with proper
+ * error handling, directory management, and support for various file system scenarios.
+ *
+ * ## What is Being Tested
+ * 1. **Asynchronous File Writing**: Messages are written to files using coroutines
+ * 2. **Directory Management**: Automatic creation of parent directories when needed
+ * 3. **Append Behavior**: Multiple messages are appended to the same file correctly
+ * 4. **Message Validation**: Input validation prevents invalid content from being written
+ * 5. **Error Handling**: File system errors are caught and wrapped appropriately
+ * 6. **Character Encoding**: Proper handling of Unicode and special characters
+ * 7. **Concurrent Operations**: Multiple simultaneous write operations are handled safely
+ * 8. **File System Integration**: Real file system operations with proper cleanup
  *
  * ## Testing Infrastructure Adapters
  *
  * Infrastructure adapter tests verify:
- * 1. **Port implementation**: Adapter correctly implements the port interface
- * 2. **External integration**: Proper interaction with file system
- * 3. **Error handling**: All I/O errors are caught and wrapped
- * 4. **Async behavior**: Coroutines work correctly
+ * 1. **Port Implementation**: Adapter correctly implements the OutputPort interface
+ * 2. **External Integration**: Proper interaction with the file system
+ * 3. **Error Handling**: All I/O errors are caught and wrapped in ApplicationError
+ * 4. **Async Behavior**: Coroutines work correctly for non-blocking operations
+ * 5. **Resource Management**: Files and streams are properly managed and cleaned up
+ * 6. **Platform Compatibility**: Tests work across different operating systems
  *
  * ## File System Testing Strategy
  *
  * ### Temporary Files
- * - Use `Files.createTempFile()` for isolated testing
- * - Clean up in `afterEach` to prevent test pollution
- * - Each test gets a fresh file to avoid interference
+ * - Use `Files.createTempFile()` for isolated testing environment
+ * - Clean up in `afterEach` to prevent test pollution and resource leaks
+ * - Each test gets a fresh file to avoid interference between test cases
+ * - Nested directory structures are created and cleaned up properly
  *
  * ### Testing I/O Operations
- * - Verify file contents after write
- * - Test directory creation
- * - Test append behavior
- * - Test error conditions (permissions, disk full simulation)
+ * - Verify file contents after write operations using `Files.readString()`
+ * - Test automatic directory creation for nested paths
+ * - Test append behavior with multiple sequential writes
+ * - Test error conditions (permissions, invalid paths, disk simulation)
+ * - Validate file encoding and character preservation
  *
  * ## Key Test Scenarios
  *
  * ### Success Cases
- * - Simple message write
- * - Multiple messages (append)
- * - Directory creation
- * - Special characters and encodings
+ * - **Simple Message Write**: Basic file writing with content verification
+ * - **Multiple Messages (Append)**: Sequential writes append correctly
+ * - **Directory Creation**: Parent directories created automatically
+ * - **Special Characters and Encodings**: Unicode, emojis, and international text
+ * - **Long Messages**: Large content handling and performance
+ * - **Concurrent Writes**: Multiple simultaneous operations
  *
  * ### Error Cases
- * - Blank messages
- * - File permission errors
- * - Invalid paths
- * - Concurrent writes
+ * - **Blank Messages**: Proper rejection of empty or whitespace-only content
+ * - **File Permission Errors**: Read-only files and permission denied scenarios
+ * - **Invalid Paths**: Directory paths used as file paths
+ * - **Concurrent Writes**: Race conditions and file locking scenarios
+ * - **Disk Space**: Simulated disk full conditions (where possible)
  *
  * ## Async Testing
  *
  * Uses `runTest` from kotlinx.coroutines.test:
- * - Provides test dispatcher
- * - Controls coroutine execution
- * - Allows testing suspend functions
+ * - Provides controlled test dispatcher for deterministic testing
+ * - Controls coroutine execution and timing
+ * - Allows testing suspend functions without blocking test threads
+ * - Enables testing of concurrent operations safely
+ * - Provides proper exception handling for async operations
  *
  * ## Platform Considerations
  *
  * File system behavior varies by platform:
- * - Line endings: `\n` vs `\r\n`
- * - Path separators: `/` vs `\`
- * - Permissions: Unix vs Windows
+ * - **Line Endings**: `\n` vs `\r\n` handled transparently by Java NIO
+ * - **Path Separators**: `/` vs `\` handled by Path API
+ * - **Permissions**: Unix file permissions vs Windows ACLs
+ * - **Case Sensitivity**: Windows (case-insensitive) vs Unix (case-sensitive)
+ * - **File Locking**: Platform-specific file locking behavior
  *
- * Tests use platform-agnostic approaches where possible.
+ * Tests use platform-agnostic approaches where possible, with fallback
+ * handling for platform-specific limitations.
+ *
+ * ## Helper Function Testing
+ * The test suite also validates the `readFileAsync` helper function:
+ * - **File Reading**: Asynchronous file content reading
+ * - **Error Handling**: Non-existent files and invalid paths
+ * - **Type Validation**: Directory vs file distinction
+ * - **Content Preservation**: Character encoding and content integrity
+ *
+ * ## Educational Value
+ * This test suite demonstrates several important testing concepts:
+ * - **File System Testing**: How to test file I/O operations safely
+ * - **Async I/O Testing**: Testing coroutine-based file operations
+ * - **Resource Management**: Proper cleanup of test resources
+ * - **Error Injection**: Testing various failure scenarios
+ * - **Integration Testing**: Testing real file system interactions
+ * - **Platform Compatibility**: Writing tests that work across operating systems
+ *
+ * ## Real-World Applications
+ * The FileOutputAdapter is essential for:
+ * - **Logging Systems**: Persistent log file creation and management
+ * - **Data Export**: Writing application data to files
+ * - **Configuration Management**: Saving application settings
+ * - **Report Generation**: Creating output files for reports
+ * - **Backup Operations**: Writing backup data to storage
+ * - **Audit Trails**: Maintaining persistent audit logs
+ *
+ * ## Performance Characteristics
+ * - **Asynchronous Operations**: Non-blocking file writes using coroutines
+ * - **Append Efficiency**: Optimized for sequential append operations
+ * - **Memory Efficiency**: Streaming writes for large content
+ * - **Concurrent Safety**: Thread-safe operations through NIO.2
+ * - **Directory Optimization**: Efficient parent directory creation
+ *
+ * @see FileOutputAdapter The file output adapter being tested
+ * @see OutputPort The port interface this adapter implements
+ * @see readFileAsync The helper function for asynchronous file reading
+ * @see java.nio.file.Files The NIO.2 API used for file operations
+ * @see ApplicationError.OutputError The error type used for file operation failures
  */
 class FileOutputAdapterTest : DescribeSpec({
 

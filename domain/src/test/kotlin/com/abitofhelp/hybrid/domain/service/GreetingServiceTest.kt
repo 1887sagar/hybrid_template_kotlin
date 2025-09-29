@@ -1,9 +1,9 @@
-/*
- * Kotlin Hybrid Architecture Template - Test Suite
- * Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
- * SPDX-License-Identifier: BSD-3-Clause
- * See LICENSE file in the project root.
- */
+////////////////////////////////////////////////////////////////////////////////
+// Kotlin Hybrid Architecture Template - Test Suite
+// Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE file in the project root.
+////////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.domain.service
 
@@ -17,68 +17,165 @@ import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 
 /**
- * Test suite for GreetingService interface.
+ * Unit tests for the GreetingService interface.
  *
- * ## Testing Interfaces
+ * ## Purpose
+ * This test suite validates the contract and design of the GreetingService interface,
+ * which defines how greetings are created in our domain. Testing interfaces ensures
+ * they can be implemented correctly and provides documentation of expected behavior.
  *
- * When testing interfaces, we verify:
- * 1. **Contract adherence**: Implementations follow the expected behavior
- * 2. **Error cases**: Proper error handling is implemented
- * 3. **Mockability**: Interface can be mocked for testing other components
+ * ## What is Being Tested
+ * 1. **Interface Contract**: Verifies the interface can be implemented
+ * 2. **Return Type Design**: Validates the use of Either for error handling
+ * 3. **Method Signatures**: Ensures methods accept correct types (PersonName)
+ * 4. **Mockability**: Confirms the interface can be mocked for testing
+ * 5. **Suspend Function Support**: Tests async/coroutine compatibility
  *
  * ## Why Test Interfaces?
+ * Testing interfaces might seem counterintuitive since they have no implementation,
+ * but it serves several important purposes:
+ * - **Design Validation**: Ensures the interface is well-designed and implementable
+ * - **Contract Documentation**: Tests serve as executable specifications
+ * - **Type Safety**: Verifies correct use of domain types (PersonName, DomainError)
+ * - **Mock Verification**: Ensures the interface works with mocking frameworks
+ * - **Evolution Safety**: Changes to interfaces are caught early
  *
- * Even though interfaces have no implementation, testing them ensures:
- * - The interface design is sound
- * - Mock implementations work correctly
- * - Contract expectations are documented through tests
+ * ## Testing Strategy
+ * - **Test Implementation**: Create a minimal implementation to verify the contract
+ * - **Success Path Testing**: Verify normal greeting creation works
+ * - **Error Path Testing**: Ensure error handling is possible
+ * - **Coroutine Testing**: Use runTest to verify suspend functions work correctly
  *
- * ## Test Implementation Pattern
+ * ## Key Patterns Used
+ * 1. **Interface Segregation**: Small, focused interface with single responsibility
+ * 2. **Functional Error Handling**: Using Arrow's Either instead of exceptions
+ * 3. **Value Objects**: Using PersonName instead of raw strings
+ * 4. **Dependency Inversion**: Interface in domain, implementations in infrastructure
+ * 5. **Coroutine Support**: Async operations with suspend functions
  *
- * This test creates a simple test implementation to verify:
- * - The interface methods can be implemented
- * - The return types are appropriate
- * - Error handling works as expected
+ * ## Educational Value
+ * This test demonstrates several advanced concepts:
+ * - **Interface Design**: How to create testable, mockable interfaces
+ * - **Functional Programming**: Using Either for explicit error handling
+ * - **Domain-Driven Design**: Interfaces that speak the domain language
+ * - **Test Doubles**: Creating test implementations vs using mocks
+ * - **Coroutine Testing**: Testing suspend functions with runTest
  *
- * ## Integration with Domain Layer
+ * ## Implementation Guidelines
+ * When implementing this interface:
+ * 1. Return Right(greeting) for successful cases
+ * 2. Return Left(DomainError) for failures
+ * 3. Never throw exceptions - use Either for all error cases
+ * 4. Validate inputs and apply business rules
+ * 5. Keep implementations pure and side-effect free
  *
- * The GreetingService interface is a key domain service that:
- * - Encapsulates greeting creation logic
- * - Returns Either for functional error handling
- * - Uses PersonName value object for type safety
+ * ## Example Implementation
+ * ```kotlin
+ * class DefaultGreetingService : GreetingService {
+ *     override suspend fun createGreeting(name: PersonName): Either<DomainError, String> {
+ *         return if (name.value.length > 100) {
+ *             DomainError.ValidationError("name", "Name too long").left()
+ *         } else {
+ *             "Hello, ${name.value}!".right()
+ *         }
+ *     }
+ * }
+ * ```
+ *
+ * @see GreetingService The interface being tested
+ * @see PersonName The value object used for type-safe names
+ * @see DomainError The error types that can be returned
+ * @see Either Arrow's functional error handling type
  */
 class GreetingServiceTest : DescribeSpec({
 
     describe("GreetingService") {
 
-        it("should be an interface") {
-            val service = mockk<GreetingService>()
-            service shouldBe service // Just verify it compiles as interface
+        context("interface characteristics") {
+            it("should be mockable with MockK") {
+                // This test verifies that our interface design works well with
+                // mocking frameworks, which is crucial for unit testing components
+                // that depend on GreetingService
+                val service = mockk<GreetingService>()
+                service shouldBe service // Verifies successful mock creation
+            }
         }
 
         context("when implementing GreetingService") {
+            // Create a test implementation that demonstrates the interface contract
+            // This implementation shows both success and error paths
             val testService = object : GreetingService {
                 override suspend fun createGreeting(name: PersonName): Either<DomainError, String> =
                     if (name.value == "Error") {
+                        // Demonstrate error handling path
                         DomainError.ValidationError("name", "Test error").left()
                     } else {
+                        // Demonstrate success path with simple greeting
                         "Hello, ${name.value}!".right()
                     }
             }
 
-            it("should create greeting successfully") {
-                kotlinx.coroutines.test.runTest {
-                    val name = PersonName.create("John").getOrNull()!!
-                    val result = testService.createGreeting(name)
-                    result shouldBe "Hello, John!".right()
+            context("successful greeting creation") {
+                it("should create greeting and return Right") {
+                    // This test demonstrates the happy path where:
+                    // 1. A valid PersonName is provided
+                    // 2. The service creates a greeting successfully
+                    // 3. The result is wrapped in Either.Right
+                    kotlinx.coroutines.test.runTest {
+                        // Given: A valid person name
+                        val name = PersonName.create("John").getOrNull()!!
+                        
+                        // When: Creating a greeting
+                        val result = testService.createGreeting(name)
+                        
+                        // Then: Should return Right with greeting
+                        result shouldBe "Hello, John!".right()
+                    }
+                }
+
+                it("should handle complex names correctly") {
+                    // Test that implementations can handle various name formats
+                    kotlinx.coroutines.test.runTest {
+                        val complexName = PersonName.create("Mary-Jane O'Brien").getOrNull()!!
+                        val result = testService.createGreeting(complexName)
+                        result shouldBe "Hello, Mary-Jane O'Brien!".right()
+                    }
                 }
             }
 
-            it("should return error when appropriate") {
-                kotlinx.coroutines.test.runTest {
-                    val name = PersonName.create("Error").getOrNull()!!
-                    val result = testService.createGreeting(name)
-                    result shouldBe DomainError.ValidationError("name", "Test error").left()
+            context("error handling") {
+                it("should return Left with DomainError on failure") {
+                    // This test demonstrates the error path where:
+                    // 1. A specific input triggers an error condition
+                    // 2. The service returns a DomainError
+                    // 3. The error is wrapped in Either.Left
+                    // This pattern allows callers to handle errors functionally
+                    kotlinx.coroutines.test.runTest {
+                        // Given: A name that triggers error behavior
+                        val errorTriggeringName = PersonName.create("Error").getOrNull()!!
+                        
+                        // When: Creating a greeting with error-triggering input
+                        val result = testService.createGreeting(errorTriggeringName)
+                        
+                        // Then: Should return Left with specific error
+                        result shouldBe DomainError.ValidationError("name", "Test error").left()
+                    }
+                }
+            }
+
+            context("coroutine support") {
+                it("should work within coroutine context") {
+                    // This test verifies that the suspend function works correctly
+                    // in a coroutine context, which is important for async operations
+                    kotlinx.coroutines.test.runTest {
+                        // The fact that we can call createGreeting inside runTest
+                        // confirms proper suspend function implementation
+                        val name = PersonName.anonymous()
+                        val result = testService.createGreeting(name)
+                        
+                        // Verify we get a valid Either result
+                        result.isRight() shouldBe true
+                    }
                 }
             }
         }

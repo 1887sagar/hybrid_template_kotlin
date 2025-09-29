@@ -1,9 +1,9 @@
-// //////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-// //////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.presentation.cli
 
@@ -15,10 +15,71 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 
 /**
- * Factory function the composition root calls to obtain a Runnable CLI program.
- * Presentation still depends only on application ports.
+ * Factory function that creates a synchronous CLI program for legacy compatibility.
  *
- * @deprecated Use asyncCli instead for better async support
+ * ## What is a CLI Factory?
+ * A factory function is a design pattern that encapsulates object creation.
+ * This particular factory creates a CLI program wrapped in a Runnable interface,
+ * allowing it to be executed by thread-based systems that expect the standard
+ * Java Runnable contract.
+ *
+ * ## Why Use Factory Functions?
+ * Factory functions provide several benefits:
+ * - Encapsulate complex object creation logic
+ * - Hide implementation details from callers
+ * - Allow easy switching between implementations
+ * - Provide a stable API even if internal structure changes
+ *
+ * ## Railway-Oriented Programming
+ * This implementation uses Arrow's Either type for error handling:
+ * ```kotlin
+ * either {
+ *     val result = riskyOperation().bind()  // Short-circuits on error
+ *     processResult(result)
+ * }.fold(
+ *     { error -> handleError(error) },
+ *     { success -> handleSuccess(success) }
+ * )
+ * ```
+ *
+ * The `.bind()` method automatically:
+ * - Continues execution if the result is Right (success)
+ * - Short-circuits and returns the error if the result is Left (failure)
+ *
+ * ## Error Mapping Strategy
+ * The function maps technical application errors to user-friendly messages:
+ * - OutputError: File/console writing failures
+ * - DomainErrorWrapper: Business rule violations
+ * - UseCaseError: Application processing failures
+ * - ValidationError: Input format issues
+ * - BatchValidationError: Problems with multiple items
+ *
+ * ## Blocking vs Non-Blocking
+ * This function uses `runBlocking`, which blocks the current thread.
+ * While not ideal for async applications, it provides compatibility
+ * with systems that expect synchronous execution.
+ *
+ * ## Example Usage
+ * ```kotlin
+ * // In composition root
+ * val config = PresentationConfig(
+ *     verbose = true,
+ *     outputPath = "/tmp/greetings.txt",
+ *     name = "Alice"
+ * )
+ * 
+ * val cliProgram = cli(config, greetingUseCase)
+ * 
+ * // Execute in a thread
+ * val thread = Thread(cliProgram)
+ * thread.start()
+ * thread.join()
+ * ```
+ *
+ * @param cfg The presentation configuration containing user preferences
+ * @param createGreeting The use case port for creating greetings
+ * @return A Runnable that executes the CLI program when run() is called
+ * @deprecated Use asyncCli instead for better async support and non-blocking execution
  */
 @Deprecated("Use asyncCli for better async support", ReplaceWith("asyncCli(cfg, createGreeting)"))
 fun cli(cfg: PresentationConfig, createGreeting: CreateGreetingInputPort): Runnable =

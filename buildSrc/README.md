@@ -1,5 +1,13 @@
 # BuildSrc Module
 
+**Version:** 1.0.0
+**Date:** January 2025
+**SPDX-License-Identifier:** BSD-3-Clause
+**License File:** See LICENSE file in the project root.
+**Copyright:** © 2025 Michael Gardner, A Bit of Help, Inc.
+**Authors:** Michael Gardner
+**Status:** Released
+
 ## Overview
 
 The `buildSrc` directory is a special Gradle feature that allows you to write build logic in Kotlin (or Java/Groovy). Code in this directory is automatically compiled and made available to all build scripts in the project.

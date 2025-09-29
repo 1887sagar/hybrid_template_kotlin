@@ -1,76 +1,140 @@
-<!--
-  Kotlin Hybrid Architecture Template - Documentation
-  Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
-  SPDX-License-Identifier: BSD-3-Clause
-  See LICENSE file in the project root.
--->
-
 # Domain Layer Documentation
 
-## Overview
+**Version:** 1.0.0  
+**Date:** January 2025  
+**License:** BSD-3-Clause  
+**Copyright:** © 2025 Michael Gardner, A Bit of Help, Inc.  
+**Authors:** Michael Gardner  
+**Status:** Released
 
-The domain layer is the heart of the application, containing all business logic and rules. This layer has no dependencies on other layers or external frameworks, making it pure and easily testable.
+## What is the Domain Layer?
 
-## Key Concepts
+The domain layer is the heart of your application - it contains all the business logic that makes your application unique. Think of it as the "brain" that knows all the rules and decisions your business needs to make.
 
-### Value Objects
+## Why is it Special?
 
-Value objects are immutable objects that represent domain concepts. They are defined by their values rather than their identity.
+The domain layer has one superpower: **it has zero dependencies**. This means:
+- No frameworks
+- No databases
+- No web servers
+- No external libraries (except Kotlin standard library)
 
-#### PersonName Value Object
+This independence makes your business logic:
+- Easy to test
+- Easy to understand
+- Easy to change
+- Easy to reuse
+
+## Core Concepts Explained
+
+### Value Objects - Your Building Blocks
+
+Value objects are like LEGO blocks for your domain. They represent simple concepts that are defined by their values, not by an ID.
+
+#### Example: PersonName
+
+Let's look at a real example from our codebase:
 
 ```kotlin
 @JvmInline
 value class PersonName private constructor(val value: String) {
     companion object {
-        fun create(value: String): Either<DomainError.ValidationError, PersonName>
-        fun anonymous(): PersonName
+        private val NAME_PATTERN = Regex("[a-zA-Z\\s'-]+")
+        
+        fun create(value: String): Either<DomainError.ValidationError, PersonName> {
+            val trimmed = value.trim()
+            return when {
+                trimmed.isBlank() -> 
+                    DomainError.ValidationError("name", "Name cannot be blank").left()
+                !trimmed.matches(NAME_PATTERN) -> 
+                    DomainError.ValidationError("name", "Invalid characters in name").left()
+                else -> PersonName(trimmed).right()
+            }
+        }
+        
+        fun anonymous(): PersonName = PersonName("Anonymous User")
     }
 }
 ```
 
-**Purpose**: Represents a person's name with validation rules
-- **Validation**: Names must contain only letters, spaces, hyphens, and apostrophes
-- **Factory Methods**: Use `create()` for validated creation, `anonymous()` for default
-- **Immutability**: Once created, cannot be changed
-- **Type Safety**: Prevents passing raw strings where PersonName is expected
+**What's happening here?**
+1. `private constructor` - You can't create invalid names
+2. `create()` method - The only way to create a name, with validation
+3. `NAME_PATTERN` - Defines what characters are allowed
+4. `Either` return type - Returns either an error or a valid name
 
-### Domain Services
+**Why do this instead of using String?**
+```kotlin
+// Without value objects (prone to errors):
+fun greet(name: String, email: String, phone: String) {
+    // Which string is which? Easy to mix up!
+}
 
-Domain services encapsulate business logic that doesn't naturally fit within a single entity or value object.
+// With value objects (type-safe):
+fun greet(name: PersonName, email: EmailAddress, phone: PhoneNumber) {
+    // Compiler won't let you mix these up!
+}
+```
 
-#### GreetingService Interface
+### Domain Services - Your Business Logic
+
+Domain services contain business logic that doesn't belong to a single entity. Think of them as the "workers" that perform operations.
+
+#### Example: GreetingService
 
 ```kotlin
 interface GreetingService {
     suspend fun createGreeting(name: PersonName): Either<DomainError, String>
 }
+
+class DefaultGreetingService : GreetingService {
+    override suspend fun createGreeting(name: PersonName): Either<DomainError, String> {
+        return when (GreetingPolicy.determineGreetingFormat(name)) {
+            GreetingFormat.DEFAULT -> "Hello, ${name.value}!".right()
+            GreetingFormat.FRIENDLY -> "Hey there, ${name.value}! Welcome!".right()
+            GreetingFormat.FORMAL -> "Good day, ${name.value}. How may I assist you?".right()
+        }
+    }
+}
 ```
 
-**Purpose**: Defines the contract for creating greetings
-- **Asynchronous**: Uses `suspend` for non-blocking operations
-- **Error Handling**: Returns `Either` for functional error handling
-- **Domain Focus**: Accepts domain types (PersonName) not primitives
+**Key points:**
+- `interface` defines what the service does
+- Implementation contains the actual logic
+- Uses `suspend` for async operations
+- Returns `Either` for error handling
 
-#### GreetingPolicy Object
+### Business Policies - Your Rule Book
+
+Policies encapsulate business rules and decisions. They answer questions like "How should we handle this situation?"
+
+#### Example: GreetingPolicy
 
 ```kotlin
 object GreetingPolicy {
     private const val LONG_NAME_THRESHOLD = 20
-    const val MAX_GREETING_LENGTH = 200
+    private const val VIP_NAME_PREFIX = "Dr."
     
-    fun determineGreetingFormat(name: PersonName): GreetingFormat
+    fun determineGreetingFormat(name: PersonName): GreetingFormat {
+        return when {
+            name.value.startsWith(VIP_NAME_PREFIX) -> GreetingFormat.FORMAL
+            name.value.length > LONG_NAME_THRESHOLD -> GreetingFormat.FORMAL
+            name.value == "Anonymous User" -> GreetingFormat.FRIENDLY
+            else -> GreetingFormat.DEFAULT
+        }
+    }
 }
 ```
 
-**Purpose**: Encapsulates business rules for greeting formatting
-- **Business Rules**: Names over 20 characters get formal treatment
-- **Constants**: Defines limits and thresholds
-- **Pure Logic**: No side effects, just decision making
+**This policy decides:**
+- VIPs get formal greetings
+- Long names get formal treatment
+- Anonymous users get friendly greetings
+- Everyone else gets default
 
-### Domain Errors
+### Domain Errors - What Can Go Wrong?
 
-The domain layer defines its own error hierarchy using sealed classes:
+Instead of throwing exceptions, we use sealed classes to represent all possible errors:
 
 ```kotlin
 sealed class DomainError {
@@ -80,170 +144,495 @@ sealed class DomainError {
 }
 ```
 
-**Error Types**:
-- **ValidationError**: Input validation failures
-- **BusinessRuleViolation**: Business rule constraint violations
-- **NotFound**: Entity lookup failures
+**Why sealed classes?**
+- Compiler knows all possible errors
+- Forces you to handle all cases
+- No surprise exceptions at runtime
 
-## Design Patterns
+## Real-World Examples
 
-### Factory Method Pattern
+### Example 1: Money Value Object
 
-Used in value objects to ensure valid object creation:
+Here's how you might model money in your domain:
 
 ```kotlin
-companion object {
-    fun create(value: String): Either<DomainError.ValidationError, PersonName> {
-        val trimmed = value.trim()
-        return when {
-            trimmed.isBlank() -> 
-                DomainError.ValidationError("name", "Name cannot be blank").left()
-            !trimmed.matches(NAME_PATTERN) -> 
-                DomainError.ValidationError("name", "Name can only contain...").left()
-            else -> PersonName(trimmed).right()
+data class Money(
+    val amount: BigDecimal,
+    val currency: Currency
+) {
+    init {
+        require(amount >= BigDecimal.ZERO) { "Amount cannot be negative" }
+        require(amount.scale() <= currency.defaultFractionDigits) { 
+            "Too many decimal places for ${currency.currencyCode}" 
         }
     }
-}
-```
-
-**Benefits**:
-- Ensures objects are always in a valid state
-- Centralizes validation logic
-- Returns errors instead of throwing exceptions
-
-### Strategy Pattern
-
-The GreetingFormat enum acts as a strategy for different greeting styles:
-
-```kotlin
-enum class GreetingFormat {
-    DEFAULT,    // Standard greeting
-    FRIENDLY,   // Casual greeting
-    FORMAL      // More formal greeting
-}
-```
-
-## Best Practices
-
-### 1. Always Validate Input
-```kotlin
-// Good: Validation in factory method
-fun create(value: String): Either<DomainError, PersonName> {
-    // Validation logic here
-}
-
-// Bad: Public constructor without validation
-class PersonName(val value: String) // Don't do this
-```
-
-### 2. Use Sealed Classes for Errors
-```kotlin
-// Good: Type-safe error handling
-sealed class DomainError {
-    // Specific error types
-}
-
-// Bad: Generic exceptions
-throw Exception("Something went wrong") // Avoid this
-```
-
-### 3. Keep Domain Logic Pure
-```kotlin
-// Good: Pure function with no side effects
-fun calculateDiscount(amount: Money, tier: CustomerTier): Money
-
-// Bad: Function with side effects
-fun calculateDiscount(amount: Money): Money {
-    logger.info("Calculating discount") // Side effect!
-    database.save(amount) // External dependency!
-}
-```
-
-### 4. Use Domain-Specific Types
-```kotlin
-// Good: Type-safe domain concepts
-value class EmailAddress(val value: String)
-value class PhoneNumber(val value: String)
-
-// Bad: Primitive obsession
-fun sendMessage(email: String, phone: String) // Strings everywhere!
-```
-
-## Testing Domain Logic
-
-Domain tests should be simple and focused:
-
-```kotlin
-class PersonNameTest {
-    @Test
-    fun `should create valid person name`() {
-        val result = PersonName.create("John Doe")
-        
-        result.shouldBeRight()
-        result.value.value shouldBe "John Doe"
+    
+    operator fun plus(other: Money): Money {
+        require(currency == other.currency) { "Cannot add different currencies" }
+        return Money(amount + other.amount, currency)
     }
     
-    @Test
-    fun `should reject blank names`() {
-        val result = PersonName.create("   ")
+    fun format(): String = NumberFormat.getCurrencyInstance().apply {
+        currency = this@Money.currency
+    }.format(amount)
+}
+```
+
+**Features:**
+- Can't create negative money
+- Can't mix currencies
+- Proper decimal precision
+- Easy formatting
+
+### Example 2: Email Address with Validation
+
+```kotlin
+@JvmInline
+value class EmailAddress private constructor(val value: String) {
+    companion object {
+        private val EMAIL_REGEX = Regex(
+            "[a-zA-Z0-9+._%\\-]{1,256}@[a-zA-Z0-9][a-zA-Z0-9\\-]{0,64}(\\.[a-zA-Z0-9][a-zA-Z0-9\\-]{0,25})+"
+        )
         
-        result.shouldBeLeft()
-        val error = result.leftOrNull() as DomainError.ValidationError
-        error.field shouldBe "name"
-        error.message shouldContain "blank"
+        fun create(value: String): Either<DomainError.ValidationError, EmailAddress> {
+            val trimmed = value.trim().lowercase()
+            return when {
+                trimmed.isBlank() -> 
+                    DomainError.ValidationError("email", "Email cannot be blank").left()
+                !EMAIL_REGEX.matches(trimmed) -> 
+                    DomainError.ValidationError("email", "Invalid email format").left()
+                else -> EmailAddress(trimmed).right()
+            }
+        }
+    }
+    
+    val domain: String get() = value.substringAfter('@')
+    val localPart: String get() = value.substringBefore('@')
+}
+```
+
+### Example 3: Business Rule Implementation
+
+```kotlin
+object DiscountPolicy {
+    fun calculateDiscount(
+        orderTotal: Money,
+        customerType: CustomerType,
+        promoCode: PromoCode?
+    ): Either<DomainError, Discount> {
+        // Check business rules
+        if (orderTotal.amount < BigDecimal(10)) {
+            return DomainError.BusinessRuleViolation(
+                "MinimumOrderAmount",
+                "Order must be at least $10 for discounts"
+            ).left()
+        }
+        
+        val baseDiscount = when (customerType) {
+            CustomerType.NEW -> Percentage(5)
+            CustomerType.REGULAR -> Percentage(10)
+            CustomerType.VIP -> Percentage(20)
+        }
+        
+        val promoDiscount = promoCode?.let { validatePromoCode(it) } ?: Percentage(0)
+        
+        val totalDiscount = (baseDiscount + promoDiscount).coerceAtMost(Percentage(30))
+        
+        return Discount(totalDiscount, "Customer + Promo discount").right()
     }
 }
 ```
 
 ## Common Patterns and Solutions
 
-### Handling Optional Values
-```kotlin
-// Use nullable types for optional domain concepts
-data class Customer(
-    val id: CustomerId,
-    val name: PersonName,
-    val email: EmailAddress? = null // Optional
-)
-```
+### Pattern: Smart Constructors
 
-### Aggregating Business Rules
+Always validate input when creating domain objects:
+
 ```kotlin
-object PricingPolicy {
-    fun calculatePrice(
-        basePrice: Money,
-        quantity: Quantity,
-        customerTier: CustomerTier
-    ): Either<DomainError, Money> {
-        // Complex business logic here
+// DON'T: Public constructor allows invalid states
+class Age(val value: Int) // Could be negative!
+
+// DO: Factory method ensures validity
+@JvmInline
+value class Age private constructor(val value: Int) {
+    companion object {
+        fun create(value: Int): Either<DomainError, Age> {
+            return when {
+                value < 0 -> DomainError.ValidationError("age", "Age cannot be negative").left()
+                value > 150 -> DomainError.ValidationError("age", "Age seems unrealistic").left()
+                else -> Age(value).right()
+            }
+        }
     }
 }
 ```
 
-### Domain Events (Future Enhancement)
+### Pattern: Rich Domain Models
+
+Put behavior in your domain objects:
+
 ```kotlin
-sealed class DomainEvent {
-    data class OrderPlaced(val orderId: OrderId, val timestamp: Instant) : DomainEvent()
-    data class PaymentReceived(val amount: Money, val timestamp: Instant) : DomainEvent()
+// DON'T: Anemic model (just data, no behavior)
+data class BankAccount(
+    val id: AccountId,
+    val balance: Money
+)
+
+// Somewhere else:
+fun withdraw(account: BankAccount, amount: Money): BankAccount {
+    // Logic here
+}
+
+// DO: Rich model (data + behavior)
+data class BankAccount(
+    val id: AccountId,
+    private val balance: Money
+) {
+    fun withdraw(amount: Money): Either<DomainError, BankAccount> {
+        return when {
+            amount.amount <= BigDecimal.ZERO -> 
+                DomainError.ValidationError("amount", "Amount must be positive").left()
+            balance < amount -> 
+                DomainError.BusinessRuleViolation("InsufficientFunds", "Not enough money").left()
+            else -> 
+                copy(balance = balance - amount).right()
+        }
+    }
+    
+    fun deposit(amount: Money): Either<DomainError, BankAccount> {
+        require(amount.currency == balance.currency) { "Currency mismatch" }
+        return copy(balance = balance + amount).right()
+    }
 }
 ```
 
-## Guidelines for Extension
+### Pattern: Domain Events
 
-When adding new domain concepts:
+Capture important business moments:
 
-1. **Start with the domain model** - What business concept are you modeling?
-2. **Define value objects** - What immutable data represents this concept?
-3. **Add validation rules** - What makes the data valid?
-4. **Create domain services** - What operations act on these concepts?
-5. **Define error cases** - What can go wrong?
-6. **Write tests first** - Ensure your domain logic is correct
+```kotlin
+sealed class OrderEvent {
+    abstract val orderId: OrderId
+    abstract val occurredAt: Instant
+    
+    data class OrderPlaced(
+        override val orderId: OrderId,
+        override val occurredAt: Instant,
+        val customerId: CustomerId,
+        val total: Money
+    ) : OrderEvent()
+    
+    data class OrderShipped(
+        override val orderId: OrderId,
+        override val occurredAt: Instant,
+        val trackingNumber: TrackingNumber
+    ) : OrderEvent()
+}
+
+class Order {
+    private val events = mutableListOf<OrderEvent>()
+    
+    fun ship(trackingNumber: TrackingNumber): Either<DomainError, Order> {
+        if (status != OrderStatus.PAID) {
+            return DomainError.BusinessRuleViolation(
+                "OrderNotPaid",
+                "Can only ship paid orders"
+            ).left()
+        }
+        
+        status = OrderStatus.SHIPPED
+        events.add(OrderShipped(id, Instant.now(), trackingNumber))
+        
+        return this.right()
+    }
+}
+```
+
+## Testing Your Domain Logic
+
+Domain tests should be simple and focused:
+
+### Testing Value Objects
+
+```kotlin
+class MoneyTest : DescribeSpec({
+    describe("Money creation") {
+        it("should create valid money") {
+            val money = Money(BigDecimal("10.50"), Currency.getInstance("USD"))
+            money.amount shouldBe BigDecimal("10.50")
+            money.currency.currencyCode shouldBe "USD"
+        }
+        
+        it("should reject negative amounts") {
+            shouldThrow<IllegalArgumentException> {
+                Money(BigDecimal("-10"), Currency.getInstance("USD"))
+            }
+        }
+    }
+    
+    describe("Money operations") {
+        it("should add money with same currency") {
+            val money1 = Money(BigDecimal("10"), Currency.getInstance("USD"))
+            val money2 = Money(BigDecimal("20"), Currency.getInstance("USD"))
+            
+            val result = money1 + money2
+            
+            result.amount shouldBe BigDecimal("30")
+        }
+        
+        it("should reject adding different currencies") {
+            val usd = Money(BigDecimal("10"), Currency.getInstance("USD"))
+            val eur = Money(BigDecimal("20"), Currency.getInstance("EUR"))
+            
+            shouldThrow<IllegalArgumentException> {
+                usd + eur
+            }
+        }
+    }
+})
+```
+
+### Testing Domain Services
+
+```kotlin
+class DiscountServiceTest : DescribeSpec({
+    describe("Discount calculation") {
+        it("should apply VIP discount") {
+            val orderTotal = Money(BigDecimal("100"), Currency.getInstance("USD"))
+            
+            val result = DiscountPolicy.calculateDiscount(
+                orderTotal, 
+                CustomerType.VIP,
+                null
+            )
+            
+            result.shouldBeRight()
+            result.value.percentage.value shouldBe 20
+        }
+        
+        it("should reject orders under minimum") {
+            val orderTotal = Money(BigDecimal("5"), Currency.getInstance("USD"))
+            
+            val result = DiscountPolicy.calculateDiscount(
+                orderTotal,
+                CustomerType.REGULAR,
+                null
+            )
+            
+            result.shouldBeLeft()
+            val error = result.leftOrNull() as DomainError.BusinessRuleViolation
+            error.rule shouldBe "MinimumOrderAmount"
+        }
+    }
+})
+```
+
+## Common Mistakes to Avoid
+
+### Mistake 1: External Dependencies
+
+```kotlin
+// DON'T: Domain depending on external library
+import org.springframework.stereotype.Service
+
+@Service // Framework annotation in domain!
+class OrderService {
+    fun createOrder() {
+        logger.info("Creating order") // External logging!
+        database.save(...) // Database access!
+    }
+}
+
+// DO: Pure domain logic
+class OrderService {
+    fun createOrder(items: List<OrderItem>): Either<DomainError, Order> {
+        // Pure business logic only
+        return Order.create(items)
+    }
+}
+```
+
+### Mistake 2: Primitive Obsession
+
+```kotlin
+// DON'T: Using primitives everywhere
+fun processPayment(
+    amount: Double,          // What currency?
+    cardNumber: String,      // Any validation?
+    email: String,          // Valid format?
+    customerId: Long        // Just a number
+)
+
+// DO: Rich domain types
+fun processPayment(
+    amount: Money,
+    card: CreditCard,
+    email: EmailAddress,
+    customerId: CustomerId
+)
+```
+
+### Mistake 3: Anemic Domain Models
+
+```kotlin
+// DON'T: Data-only classes
+data class Product(
+    val id: Long,
+    val name: String,
+    val price: Double
+)
+
+// Logic scattered in services
+class ProductService {
+    fun applyDiscount(product: Product, discount: Double): Product {
+        // Logic here
+    }
+}
+
+// DO: Rich models with behavior
+class Product(
+    val id: ProductId,
+    val name: ProductName,
+    private var price: Money
+) {
+    fun applyDiscount(discount: Percentage): Either<DomainError, Product> {
+        if (discount.value > 50) {
+            return DomainError.BusinessRuleViolation(
+                "ExcessiveDiscount",
+                "Cannot apply more than 50% discount"
+            ).left()
+        }
+        
+        price = price * (1 - discount.value / 100)
+        return this.right()
+    }
+}
+```
+
+## Step-by-Step: Adding a New Domain Concept
+
+Let's walk through adding a new feature: Customer Loyalty Points
+
+### Step 1: Define the Value Object
+
+```kotlin
+@JvmInline
+value class LoyaltyPoints private constructor(val value: Int) {
+    companion object {
+        fun create(value: Int): Either<DomainError.ValidationError, LoyaltyPoints> {
+            return when {
+                value < 0 -> DomainError.ValidationError(
+                    "points", 
+                    "Points cannot be negative"
+                ).left()
+                else -> LoyaltyPoints(value).right()
+            }
+        }
+        
+        fun zero() = LoyaltyPoints(0)
+    }
+    
+    operator fun plus(other: LoyaltyPoints) = LoyaltyPoints(value + other.value)
+    operator fun minus(other: LoyaltyPoints) = create(value - other.value)
+    
+    fun toMoney(rate: MoneyPerPoint): Money = Money(
+        BigDecimal(value) * rate.value,
+        rate.currency
+    )
+}
+```
+
+### Step 2: Define the Business Rules
+
+```kotlin
+object LoyaltyPointsPolicy {
+    private const val POINTS_PER_DOLLAR = 10
+    private const val MINIMUM_REDEMPTION = 1000
+    
+    fun calculatePointsEarned(purchase: Money): LoyaltyPoints {
+        val dollars = purchase.amount.toInt()
+        return LoyaltyPoints.create(dollars * POINTS_PER_DOLLAR)
+            .getOrElse { LoyaltyPoints.zero() }
+    }
+    
+    fun canRedeem(points: LoyaltyPoints): Boolean {
+        return points.value >= MINIMUM_REDEMPTION
+    }
+    
+    fun calculateRedemptionValue(points: LoyaltyPoints): Money {
+        // 1000 points = $10
+        val dollars = points.value / 100
+        return Money(BigDecimal(dollars), Currency.getInstance("USD"))
+    }
+}
+```
+
+### Step 3: Add to Your Domain Model
+
+```kotlin
+data class Customer(
+    val id: CustomerId,
+    val name: PersonName,
+    val email: EmailAddress,
+    private val loyaltyPoints: LoyaltyPoints = LoyaltyPoints.zero()
+) {
+    fun earnPoints(purchase: Money): Customer {
+        val earned = LoyaltyPointsPolicy.calculatePointsEarned(purchase)
+        return copy(loyaltyPoints = loyaltyPoints + earned)
+    }
+    
+    fun redeemPoints(points: LoyaltyPoints): Either<DomainError, Pair<Customer, Money>> {
+        if (!LoyaltyPointsPolicy.canRedeem(points)) {
+            return DomainError.BusinessRuleViolation(
+                "InsufficientPoints",
+                "Need at least 1000 points to redeem"
+            ).left()
+        }
+        
+        return (loyaltyPoints - points).map { remainingPoints ->
+            val redemptionValue = LoyaltyPointsPolicy.calculateRedemptionValue(points)
+            copy(loyaltyPoints = remainingPoints) to redemptionValue
+        }
+    }
+}
+```
+
+### Step 4: Write Tests
+
+```kotlin
+class LoyaltyPointsTest : DescribeSpec({
+    describe("earning points") {
+        it("should earn 10 points per dollar") {
+            val customer = Customer(/* ... */)
+            val purchase = Money(BigDecimal("50"), Currency.getInstance("USD"))
+            
+            val updated = customer.earnPoints(purchase)
+            
+            updated.loyaltyPoints.value shouldBe 500
+        }
+    }
+    
+    describe("redeeming points") {
+        it("should require minimum points") {
+            val customer = Customer(/* ... */, loyaltyPoints = LoyaltyPoints.create(500).getOrThrow())
+            
+            val result = customer.redeemPoints(LoyaltyPoints.create(1000).getOrThrow())
+            
+            result.shouldBeLeft()
+        }
+    }
+})
+```
 
 ## Summary
 
-The domain layer is the most important layer in the application. It contains all business logic and must remain pure and independent. By following these patterns and practices, you ensure that your business logic is:
+The domain layer is where your business logic lives. Keep it:
 
-- **Testable** - No external dependencies to mock
-- **Reusable** - Can be used in different contexts
-- **Maintainable** - Clear and focused on business concerns
-- **Reliable** - Always in a valid state
+- **Pure**: No external dependencies
+- **Rich**: Behavior belongs with data
+- **Valid**: Use factory methods and validation
+- **Testable**: Simple tests, no mocks needed
+- **Expressive**: Use domain language, not technical terms
+
+Remember: If you can explain it to a business person without mentioning technology, it belongs in the domain layer!

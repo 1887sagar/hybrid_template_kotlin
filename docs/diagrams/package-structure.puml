@@ -1,223 +1,108 @@
 @startuml package-structure
 !theme plain
-title Package Structure - Module Organization
+title Hybrid Architecture - Package Structure
 
+skinparam packageStyle rectangle
 skinparam package {
-    BackgroundColor<<Domain>> #FFE5B4
-    BackgroundColor<<Application>> #B4E5FF
-    BackgroundColor<<Infrastructure>> #E5B4FF
-    BackgroundColor<<Presentation>> #B4FFE5
-    BorderColor Black
-    FontSize 12
+    BackgroundColor<<Domain>> #E8F5E8
+    BackgroundColor<<Application>> #E8F0FF
+    BackgroundColor<<Infrastructure>> #FFF5E8
+    BackgroundColor<<Presentation>> #FFE8F0
+    BackgroundColor<<Bootstrap>> #F0F0F0
+    BorderColor #666666
 }
 
-' Root package
+skinparam note {
+    BackgroundColor #FFFFCC
+    BorderColor #666666
+}
+
 package "com.abitofhelp.hybrid" {
     
-    ' Domain Module
     package "domain" <<Domain>> {
-        package "model" {
-            class Order
-            class Customer
-            class Product
-        }
         package "value" {
-            class Email
-            class Money
-            class OrderId
-            class CustomerId
-        }
-        package "event" {
-            class DomainEvent
-            class OrderSubmitted
-            class CustomerActivated
+            class PersonName
         }
         package "service" {
-            class PricingService
-            class InventoryService
-        }
-        package "repository" {
-            interface CustomerRepository
-            interface OrderRepository
-            interface ProductRepository
+            interface GreetingService
+            class GreetingPolicy
         }
         package "error" {
             class DomainError
-            class ValidationError
-            class BusinessRuleViolation
         }
     }
     
-    ' Application Module
     package "application" <<Application>> {
-        package "use_case" {
-            package "order" {
-                class CreateOrderUseCase
-                class GetOrderDetailsUseCase
-                class CancelOrderUseCase
-            }
-            package "customer" {
-                class RegisterCustomerUseCase
-                class UpdateCustomerUseCase
-                class GetCustomerUseCase
-            }
+        package "usecase" {
+            class CreateGreetingUseCase
+            class CreateBatchGreetingsUseCase
         }
-        package "port" {
-            package "input" {
-                interface CreateOrderPort
-                interface GetCustomerPort
-            }
-            package "output" {
-                interface PaymentServicePort
-                interface NotificationPort
-                interface EventPublisherPort
-            }
+        package "port.input" {
+            interface CreateGreetingInputPort
+            interface CreateBatchGreetingsInputPort
+        }
+        package "port.output" {
+            interface OutputPort
+            interface BatchProcessingPort
         }
         package "dto" {
-            class OrderDto
-            class CustomerDto
-            class CreateOrderCommand
-        }
-        package "service" {
-            class ApplicationEventService
-            class NotificationService
-        }
-        package "mapper" {
-            class OrderMapper
-            class CustomerMapper
+            class CreateGreetingCommand
+            class BatchGreetingCommand
+            class GreetingResult
         }
         package "error" {
             class ApplicationError
-            class UseCaseError
+        }
+        package "coroutines" {
+            class CoroutineErrorHandler
         }
     }
     
-    ' Infrastructure Module
     package "infrastructure" <<Infrastructure>> {
-        package "adapter" {
-            package "persistence" {
-                package "jpa" {
-                    class JpaCustomerRepository
-                    class JpaOrderRepository
-                }
-                package "mongodb" {
-                    class MongoOrderRepository
-                }
-                package "redis" {
-                    class RedisCacheAdapter
-                }
-            }
-            package "external" {
-                package "payment" {
-                    class StripePaymentAdapter
-                    class PayPalPaymentAdapter
-                }
-                package "email" {
-                    class SendGridEmailAdapter
-                }
-                package "sms" {
-                    class TwilioSmsAdapter
-                }
-            }
-            package "messaging" {
-                package "kafka" {
-                    class KafkaEventPublisher
-                    class KafkaEventConsumer
-                }
-                package "rabbitmq" {
-                    class RabbitMQAdapter
-                }
-            }
-            package "filesystem" {
-                class LocalFileSystemAdapter
-                class S3FileAdapter
-            }
+        package "adapter.output" {
+            class ConsoleOutputAdapter
+            class ConsoleErrorOutputAdapter
+            class FileOutputAdapter
+            class BufferedFileOutputAdapter
+            class CompositeOutputAdapter
         }
-        package "config" {
-            class DatabaseConfig
-            class ExternalServiceConfig
-            class MessagingConfig
-        }
-        package "mapper" {
-            class EntityMapper
-            class EventMapper
+        package "service" {
+            class DefaultGreetingService
         }
     }
     
-    ' Presentation Module
     package "presentation" <<Presentation>> {
-        package "api" {
-            package "rest" {
-                package "v1" {
-                    class OrderController
-                    class CustomerController
-                }
-                package "v2" {
-                    class OrderControllerV2
-                }
-            }
-            package "graphql" {
-                class OrderResolver
-                class CustomerResolver
-            }
-            package "websocket" {
-                class OrderWebSocketHandler
-            }
-        }
         package "cli" {
-            package "commands" {
-                class CreateOrderCommand
-                class ListOrdersCommand
-                class HelloWorldCommand
-            }
-            package "output" {
-                class JsonFormatter
-                class TableFormatter
-            }
+            class AsyncCliRunner
+            class PureAsyncCli
+            class CliFactory
+            class PresentationConfig
+            interface Runnable
         }
-        package "web" {
-            package "controller" {
-                class OrderWebController
-            }
-            package "view" {
-                class OrderView
-            }
-        }
-        package "dto" {
-            class CreateOrderRequest
-            class OrderResponse
-            class ValidationError
-        }
-        package "mapper" {
-            class RequestMapper
-            class ResponseMapper
-        }
-        package "security" {
-            class SecurityConfig
-            class JwtAuthFilter
-        }
-        package "error" {
-            class GlobalExceptionHandler
-            class ErrorResponse
-        }
+    }
+    
+    package "bootstrap" <<Bootstrap>> {
+        class AsyncEntryPoint
+        class CompositionRoot
+        class SecureArgParser
+        class AppConfig
+        class EntryPoint
     }
 }
 
-' Key relationships between packages
-domain.repository <.. infrastructure.adapter.persistence : implements
-application.port.output <.. infrastructure.adapter.external : implements
-application.use_case ..> domain.model : uses
-application.use_case ..> domain.service : uses
-presentation.api.rest ..> application.use_case : calls
-presentation.cli.commands ..> application.use_case : calls
+note right of domain : "No external dependencies\nPure business logic\nStable core"
+note left of application : "Orchestrates business logic\nDefines boundaries (ports)\nNo infrastructure dependencies"
+note bottom of infrastructure : "Technical implementations\nExternal system integrations\nImplements domain and application interfaces"
+note top of presentation : "User interface layer\nCLI implementation\nFuture: REST, GraphQL, Web UI"
+note right of bootstrap : "Entry point and DI\nOnly module that knows all types\nWires all dependencies"
 
-note bottom
-    **Package Organization Principles:**
-    • Each module has clear responsibilities
-    • Packages are organized by feature/concept
-    • Dependencies flow inward toward domain
-    • Infrastructure implements all ports
-    • Presentation only knows about Application layer
-end note
+' Dependencies (following clean architecture rules)
+domain <-- application
+domain <-- infrastructure
+application <-- infrastructure
+application <-- presentation
+infrastructure <-- bootstrap
+application <-- bootstrap
+presentation <-- bootstrap
 
 @enduml

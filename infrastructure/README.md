@@ -1,509 +1,759 @@
-<!--
-  Kotlin Hybrid Architecture Template
-  Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
-  SPDX-License-Identifier: BSD-3-Clause
-  See LICENSE file in the project root.
--->
-
 # Infrastructure Module
 
-## Overview
+**Version:** 1.0.0  
+**Date:** January 2025  
+**License:** BSD-3-Clause  
+**Copyright:** © 2025 Michael Gardner, A Bit of Help, Inc.  
+**Authors:** Michael Gardner  
+**Status:** Released
 
-The Infrastructure module contains all the **technical implementations** and **external system integrations**. It implements the port interfaces defined in the Application layer and provides concrete implementations for databases, external APIs, file systems, messaging systems, and other technical concerns.
+## What is the Infrastructure Module?
 
-## Core Principles
+The infrastructure module is where the "real world" meets your application. It's the layer that handles all the technical details - writing to files, reading from databases, calling external APIs, and handling console output. Think of it as the "plumbing" that connects your business logic to the outside world.
 
-- **Depends on Domain and Application modules**
-- **Implements port interfaces** defined in Application layer
-- **Contains all framework-specific code**
-- **Handles external system integration**
-- **No business logic** - only technical implementation
-- **Converts exceptions to Either** at boundaries
+## Why Infrastructure Matters
 
-## Structure
+Your beautiful domain logic is useless if it can't:
+- Save data persistently
+- Communicate with users
+- Integrate with other systems
+- Handle real-world I/O operations
+
+The infrastructure layer makes all this possible while keeping technical concerns separate from business logic.
+
+## The Adapter Pattern
+
+This module implements the "Adapter" pattern from Hexagonal Architecture:
+
+```
+┌─────────────────┐         ┌──────────────────┐
+│  Application    │  Port   │  Infrastructure  │
+│    Layer       ├─────────>│     Adapter      │
+│  (Interface)   │         │ (Implementation) │
+└─────────────────┘         └──────────────────┘
+```
+
+**Key Concept**: The application defines what it needs (ports), and infrastructure provides how it's done (adapters).
+
+## Current Adapters
+
+### Output Adapters - Getting Data Out
+
+#### 1. ConsoleOutputAdapter
+
+Writes messages to the terminal with async buffering:
+
+```kotlin
+class ConsoleOutputAdapter : OutputPort {
+    private val messageQueue = ConcurrentLinkedQueue<String>()
+    private val outputThread = thread(start = true, isDaemon = true, name = "ConsoleOutputAdapter") {
+        val writer = BufferedWriter(OutputStreamWriter(System.out), BUFFER_SIZE)
+        while (!Thread.currentThread().isInterrupted) {
+            processMessages(writer)
+            Thread.sleep(FLUSH_INTERVAL_MS)
+        }
+    }
+    
+    override suspend fun send(message: String): Either<ApplicationError, Unit> {
+        return try {
+            messageQueue.offer(message)
+            Unit.right()
+        } catch (e: Exception) {
+            ApplicationError.OutputError("Failed to queue message", e).left()
+        }
+    }
+}
+```
+
+**Features**:
+- Async output on separate thread
+- 8KB buffer for efficiency
+- Automatic flushing every 100ms
+- Graceful shutdown handling
+
+#### 2. FileOutputAdapter
+
+Writes messages to a file:
+
+```kotlin
+class FileOutputAdapter(
+    private val filePath: String,
+    private val append: Boolean = true
+) : OutputPort {
+    
+    override suspend fun send(message: String): Either<ApplicationError, Unit> {
+        return try {
+            withContext(Dispatchers.IO) {
+                File(filePath).apply {
+                    parentFile?.mkdirs() // Create directories if needed
+                    if (append) {
+                        appendText("$message\n")
+                    } else {
+                        writeText("$message\n")
+                    }
+                }
+            }
+            Unit.right()
+        } catch (e: IOException) {
+            ApplicationError.OutputError(
+                "Failed to write to file: ${e.message}", 
+                e
+            ).left()
+        }
+    }
+}
+```
+
+**Features**:
+- Creates parent directories automatically
+- Supports append or overwrite modes
+- Proper error handling with Either
+- Uses coroutines for async I/O
+
+#### 3. CompositeOutputAdapter
+
+Combines multiple output adapters:
+
+```kotlin
+class CompositeOutputAdapter(
+    private val adapters: List<OutputPort>
+) : OutputPort {
+    
+    override suspend fun send(message: String): Either<ApplicationError, Unit> {
+        val errors = mutableListOf<ApplicationError>()
+        
+        // Send to all adapters concurrently
+        coroutineScope {
+            adapters.map { adapter ->
+                async {
+                    adapter.send(message).fold(
+                        { error -> errors.add(error) },
+                        { /* Success */ }
+                    )
+                }
+            }.awaitAll()
+        }
+        
+        return if (errors.isEmpty()) {
+            Unit.right()
+        } else {
+            ApplicationError.CompositeError(errors).left()
+        }
+    }
+}
+```
+
+**Use Case**: Write to both console and file simultaneously
+
+```kotlin
+val composite = CompositeOutputAdapter(
+    listOf(
+        ConsoleOutputAdapter(),
+        FileOutputAdapter("app.log")
+    )
+)
+```
+
+#### 4. BufferedFileOutputAdapter
+
+Efficient file writing with buffering:
+
+```kotlin
+class BufferedFileOutputAdapter(
+    private val filePath: String,
+    private val bufferSize: Int = 8192,
+    private val append: Boolean = true
+) : OutputPort {
+    
+    private val buffer = StringBuilder(bufferSize)
+    private val lock = Mutex()
+    
+    override suspend fun send(message: String): Either<ApplicationError, Unit> {
+        return try {
+            lock.withLock {
+                buffer.append(message).append('\n')
+                
+                // Flush when buffer is full
+                if (buffer.length >= bufferSize) {
+                    flush()
+                }
+            }
+            Unit.right()
+        } catch (e: Exception) {
+            ApplicationError.OutputError("Buffer operation failed", e).left()
+        }
+    }
+    
+    private suspend fun flush() {
+        withContext(Dispatchers.IO) {
+            File(filePath).apply {
+                parentFile?.mkdirs()
+                if (append) {
+                    appendText(buffer.toString())
+                } else {
+                    writeText(buffer.toString())
+                }
+            }
+        }
+        buffer.clear()
+    }
+}
+```
+
+**Benefits**:
+- Reduces I/O operations
+- Better performance for high-frequency writes
+- Thread-safe with Mutex
+- Manual flush capability
+
+## Common Patterns and Solutions
+
+### Pattern: Repository Implementation
+
+When you need to store and retrieve domain entities:
+
+```kotlin
+class FileBasedUserRepository(
+    private val dataDir: String
+) : UserRepositoryPort {
+    
+    override suspend fun save(user: User): Either<ApplicationError, User> {
+        return try {
+            withContext(Dispatchers.IO) {
+                val file = File(dataDir, "user_${user.id.value}.json")
+                file.parentFile.mkdirs()
+                
+                val json = Json.encodeToString(toDto(user))
+                file.writeText(json)
+                
+                user.right()
+            }
+        } catch (e: Exception) {
+            ApplicationError.PersistenceError(
+                "Failed to save user", 
+                e
+            ).left()
+        }
+    }
+    
+    override suspend fun findById(
+        id: UserId
+    ): Either<ApplicationError, User?> {
+        return try {
+            withContext(Dispatchers.IO) {
+                val file = File(dataDir, "user_${id.value}.json")
+                if (!file.exists()) {
+                    null.right()
+                } else {
+                    val json = file.readText()
+                    val dto = Json.decodeFromString<UserDto>(json)
+                    toDomain(dto).right()
+                }
+            }
+        } catch (e: Exception) {
+            ApplicationError.RetrievalError(
+                "Failed to load user", 
+                e
+            ).left()
+        }
+    }
+    
+    // Convert between domain and DTOs
+    private fun toDto(user: User): UserDto = UserDto(
+        id = user.id.value,
+        name = user.name.value,
+        email = user.email.value
+    )
+    
+    private fun toDomain(dto: UserDto): User = User(
+        id = UserId(dto.id),
+        name = PersonName.create(dto.name).getOrThrow(),
+        email = Email.create(dto.email).getOrThrow()
+    )
+}
+```
+
+### Pattern: External API Client
+
+```kotlin
+class WeatherApiAdapter(
+    private val apiKey: String,
+    private val baseUrl: String
+) : WeatherServicePort {
+    
+    private val client = HttpClient {
+        install(ContentNegotiation) {
+            json()
+        }
+        install(HttpTimeout) {
+            requestTimeoutMillis = 5000
+        }
+    }
+    
+    override suspend fun getWeather(
+        city: String
+    ): Either<ApplicationError, Weather> {
+        return try {
+            val response: WeatherResponse = client.get("$baseUrl/weather") {
+                parameter("q", city)
+                parameter("apikey", apiKey)
+            }
+            
+            Weather(
+                temperature = Temperature.celsius(response.temp),
+                description = response.description,
+                humidity = Percentage(response.humidity)
+            ).right()
+            
+        } catch (e: ClientRequestException) {
+            ApplicationError.ExternalServiceError(
+                "Weather API",
+                "Invalid request: ${e.message}"
+            ).left()
+        } catch (e: Exception) {
+            ApplicationError.ExternalServiceError(
+                "Weather API",
+                "Service unavailable"
+            ).left()
+        }
+    }
+}
+```
+
+### Pattern: Event Publisher
+
+```kotlin
+class KafkaEventPublisher(
+    private val producer: KafkaProducer<String, String>
+) : EventPublisherPort {
+    
+    override suspend fun publish(
+        event: DomainEvent
+    ): Either<ApplicationError, Unit> {
+        return try {
+            withContext(Dispatchers.IO) {
+                val record = ProducerRecord(
+                    "domain-events",
+                    event.aggregateId,
+                    Json.encodeToString(event)
+                )
+                
+                producer.send(record).get(5, TimeUnit.SECONDS)
+                Unit.right()
+            }
+        } catch (e: TimeoutException) {
+            ApplicationError.ExternalServiceError(
+                "Kafka",
+                "Publish timeout"
+            ).left()
+        } catch (e: Exception) {
+            ApplicationError.ExternalServiceError(
+                "Kafka",
+                "Failed to publish event"
+            ).left()
+        }
+    }
+}
+```
+
+## Testing Infrastructure Code
+
+### Unit Tests with Test Doubles
+
+```kotlin
+class FileOutputAdapterTest : DescribeSpec({
+    
+    describe("FileOutputAdapter") {
+        val testDir = createTempDir()
+        val testFile = File(testDir, "test.txt")
+        val adapter = FileOutputAdapter(testFile.absolutePath)
+        
+        afterSpec {
+            testDir.deleteRecursively()
+        }
+        
+        it("should write message to file") {
+            val result = runBlocking {
+                adapter.send("Hello, World!")
+            }
+            
+            result.shouldBeRight()
+            testFile.readText() shouldBe "Hello, World!\n"
+        }
+        
+        it("should handle I/O errors gracefully") {
+            val readOnlyDir = File("/dev/null")
+            val badAdapter = FileOutputAdapter(
+                "$readOnlyDir/impossible.txt"
+            )
+            
+            val result = runBlocking {
+                badAdapter.send("This will fail")
+            }
+            
+            result.shouldBeLeft()
+            val error = result.leftOrNull() as ApplicationError.OutputError
+            error.message shouldContain "Failed to write"
+        }
+    }
+})
+```
+
+### Integration Tests
+
+```kotlin
+class DatabaseIntegrationTest : DescribeSpec({
+    
+    val testDb = TestDatabase.create()
+    val repository = PostgresUserRepository(testDb.dataSource)
+    
+    beforeSpec {
+        testDb.migrate()
+    }
+    
+    afterSpec {
+        testDb.close()
+    }
+    
+    describe("User persistence") {
+        it("should save and retrieve user") {
+            val user = User(
+                id = UserId.generate(),
+                name = PersonName.create("Alice").getOrThrow(),
+                email = Email.create("alice@example.com").getOrThrow()
+            )
+            
+            runBlocking {
+                repository.save(user).shouldBeRight()
+                
+                val loaded = repository.findById(user.id)
+                loaded.shouldBeRight()
+                loaded.value shouldBe user
+            }
+        }
+    }
+})
+```
+
+### Contract Tests
+
+```kotlin
+abstract class OutputPortContract(
+    private val createAdapter: () -> OutputPort
+) : DescribeSpec({
+    
+    describe("OutputPort contract") {
+        val adapter = createAdapter()
+        
+        it("should successfully send valid message") {
+            val result = runBlocking {
+                adapter.send("Valid message")
+            }
+            result.shouldBeRight()
+        }
+        
+        it("should handle empty message") {
+            val result = runBlocking {
+                adapter.send("")
+            }
+            // Depends on implementation - some may accept empty
+        }
+    }
+})
+
+// Run contract test for each implementation
+class ConsoleOutputContractTest : OutputPortContract(
+    { ConsoleOutputAdapter() }
+)
+
+class FileOutputContractTest : OutputPortContract(
+    { FileOutputAdapter(createTempFile().absolutePath) }
+)
+```
+
+## Common Pitfalls and Solutions
+
+### Pitfall 1: Blocking I/O in Coroutines
+
+```kotlin
+// BAD: Blocks the coroutine thread
+override suspend fun readFile(path: String): String {
+    return File(path).readText() // Blocking!
+}
+
+// GOOD: Uses proper dispatcher
+override suspend fun readFile(path: String): String {
+    return withContext(Dispatchers.IO) {
+        File(path).readText()
+    }
+}
+```
+
+### Pitfall 2: Not Handling Resources Properly
+
+```kotlin
+// BAD: Resource leak
+fun writeToFile(data: String) {
+    val writer = FileWriter("output.txt")
+    writer.write(data)
+    // Forgot to close!
+}
+
+// GOOD: Use use() for auto-closing
+fun writeToFile(data: String) {
+    FileWriter("output.txt").use { writer ->
+        writer.write(data)
+    } // Automatically closed
+}
+
+// BETTER: Use Kotlin's file extensions
+fun writeToFile(data: String) {
+    File("output.txt").writeText(data)
+}
+```
+
+### Pitfall 3: Exposing Infrastructure Details
+
+```kotlin
+// BAD: Leaks SQLException to application
+override fun save(user: User): User {
+    try {
+        // SQL operations
+    } catch (e: SQLException) {
+        throw e // Application shouldn't know about SQL!
+    }
+}
+
+// GOOD: Wrap in application error
+override fun save(user: User): Either<ApplicationError, User> {
+    return try {
+        // SQL operations
+        user.right()
+    } catch (e: SQLException) {
+        ApplicationError.PersistenceError(
+            "Failed to save user",
+            e
+        ).left()
+    }
+}
+```
+
+## Adding New Adapters
+
+### Step 1: Define the Port (in Application layer)
+
+```kotlin
+// application/src/main/kotlin/.../port/output/CachePort.kt
+interface CachePort {
+    suspend fun get(key: String): Either<ApplicationError, String?>
+    suspend fun set(key: String, value: String, ttl: Duration = Duration.INFINITE): Either<ApplicationError, Unit>
+    suspend fun delete(key: String): Either<ApplicationError, Unit>
+}
+```
+
+### Step 2: Implement the Adapter
+
+```kotlin
+// infrastructure/src/main/kotlin/.../adapter/output/RedisCacheAdapter.kt
+class RedisCacheAdapter(
+    private val redisClient: RedisClient
+) : CachePort {
+    
+    override suspend fun get(key: String): Either<ApplicationError, String?> {
+        return try {
+            withContext(Dispatchers.IO) {
+                redisClient.get(key).right()
+            }
+        } catch (e: Exception) {
+            ApplicationError.ExternalServiceError(
+                "Redis",
+                "Failed to get value"
+            ).left()
+        }
+    }
+    
+    override suspend fun set(
+        key: String, 
+        value: String, 
+        ttl: Duration
+    ): Either<ApplicationError, Unit> {
+        return try {
+            withContext(Dispatchers.IO) {
+                if (ttl.isInfinite()) {
+                    redisClient.set(key, value)
+                } else {
+                    redisClient.setex(key, ttl.inWholeSeconds.toInt(), value)
+                }
+                Unit.right()
+            }
+        } catch (e: Exception) {
+            ApplicationError.ExternalServiceError(
+                "Redis",
+                "Failed to set value"
+            ).left()
+        }
+    }
+}
+```
+
+### Step 3: Write Tests
+
+```kotlin
+class RedisCacheAdapterTest : DescribeSpec({
+    
+    val testRedis = TestRedisContainer()
+    lateinit var adapter: CachePort
+    
+    beforeSpec {
+        testRedis.start()
+        adapter = RedisCacheAdapter(testRedis.client)
+    }
+    
+    afterSpec {
+        testRedis.stop()
+    }
+    
+    describe("Redis cache operations") {
+        it("should store and retrieve values") {
+            runBlocking {
+                adapter.set("key1", "value1").shouldBeRight()
+                
+                val result = adapter.get("key1")
+                result.shouldBeRight()
+                result.value shouldBe "value1"
+            }
+        }
+        
+        it("should expire values after TTL") {
+            runBlocking {
+                adapter.set("key2", "value2", 1.seconds).shouldBeRight()
+                
+                delay(1500)
+                
+                val result = adapter.get("key2")
+                result.shouldBeRight()
+                result.value shouldBe null
+            }
+        }
+    }
+})
+```
+
+### Step 4: Wire in Bootstrap
+
+```kotlin
+// bootstrap/src/main/kotlin/.../CompositionRoot.kt
+object CompositionRoot {
+    fun createCachePort(config: AppConfig): CachePort {
+        return when (config.cacheType) {
+            CacheType.REDIS -> RedisCacheAdapter(
+                RedisClient.create(config.redisUrl)
+            )
+            CacheType.IN_MEMORY -> InMemoryCacheAdapter()
+            CacheType.NONE -> NoOpCacheAdapter()
+        }
+    }
+}
+```
+
+## Performance Considerations
+
+### Connection Pooling
+
+```kotlin
+class DatabaseConnectionPool(
+    private val config: DatabaseConfig
+) {
+    private val dataSource = HikariDataSource().apply {
+        jdbcUrl = config.url
+        username = config.username
+        password = config.password
+        maximumPoolSize = 10
+        minimumIdle = 2
+        connectionTimeout = 5000
+    }
+    
+    suspend fun <T> withConnection(
+        block: suspend (Connection) -> T
+    ): T {
+        return withContext(Dispatchers.IO) {
+            dataSource.connection.use { conn ->
+                block(conn)
+            }
+        }
+    }
+}
+```
+
+### Caching Strategy
+
+```kotlin
+class CachedUserRepository(
+    private val delegate: UserRepositoryPort,
+    private val cache: CachePort
+) : UserRepositoryPort {
+    
+    override suspend fun findById(
+        id: UserId
+    ): Either<ApplicationError, User?> {
+        // Try cache first
+        val cacheKey = "user:${id.value}"
+        
+        return cache.get(cacheKey).flatMap { cached ->
+            if (cached != null) {
+                // Parse from cache
+                Json.decodeFromString<UserDto>(cached)
+                    .let { toDomain(it) }
+                    .let { it.right() }
+            } else {
+                // Load from database
+                delegate.findById(id).onRight { user ->
+                    // Cache for next time
+                    user?.let {
+                        val json = Json.encodeToString(toDto(it))
+                        cache.set(cacheKey, json, 5.minutes)
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+## Module Structure
 
 ```
 infrastructure/
 ├── src/
 │   ├── main/
 │   │   └── kotlin/
-│   │       └── com/
-│   │           └── abitofhelp/
-│   │               └── hybrid/
-│   │                   └── infrastructure/
-│   │                       ├── adapter/           # Port implementations
-│   │                       │   ├── persistence/  # Database adapters
-│   │                       │   │   ├── jpa/      # JPA repositories
-│   │                       │   │   ├── mongodb/  # MongoDB repositories
-│   │                       │   │   └── redis/    # Redis cache
-│   │                       │   ├── external/     # External service adapters
-│   │                       │   │   ├── payment/  # Payment gateways
-│   │                       │   │   ├── email/    # Email services
-│   │                       │   │   └── sms/      # SMS providers
-│   │                       │   ├── messaging/    # Message queue adapters
-│   │                       │   │   ├── kafka/    # Kafka producer/consumer
-│   │                       │   │   └── rabbitmq/ # RabbitMQ implementation
-│   │                       │   └── filesystem/   # File system operations
-│   │                       ├── config/           # Infrastructure configuration
-│   │                       ├── error/            # Infrastructure error mapping
-│   │                       └── util/             # Technical utilities
+│   │       └── com/abitofhelp/hybrid/infrastructure/
+│   │           ├── adapter/
+│   │           │   ├── output/          # Output port implementations
+│   │           │   │   ├── ConsoleOutputAdapter.kt
+│   │           │   │   ├── FileOutputAdapter.kt
+│   │           │   │   └── CompositeOutputAdapter.kt
+│   │           │   ├── input/           # Input adapters (REST, etc.)
+│   │           │   └── repository/      # Repository implementations
+│   │           ├── config/              # Infrastructure configuration
+│   │           └── util/                # Infrastructure utilities
 │   └── test/
 │       └── kotlin/
-│           └── com/
-│               └── abitofhelp/
-│                   └── hybrid/
-│                       └── infrastructure/       # Infrastructure tests
-└── build.gradle.kts                               # Module build configuration
+│           └── com/abitofhelp/hybrid/infrastructure/
+│               ├── adapter/             # Adapter tests
+│               ├── integration/         # Integration tests
+│               └── contract/            # Contract tests
+└── build.gradle.kts
 ```
 
-## Key Components
+## Summary
 
-### Database Adapters
+The infrastructure module is where theory meets practice. It:
 
-#### JPA Repository Implementation
-```kotlin
-@Repository
-class JpaCustomerRepository(
-    private val jpaRepository: CustomerJpaRepository,
-    private val mapper: CustomerEntityMapper
-) : CustomerRepository {
-    
-    override suspend fun findById(id: CustomerId): Either<DomainError, Customer?> {
-        return Either.catch {
-            jpaRepository.findById(id.value)
-                .map { mapper.toDomain(it) }
-                .orElse(null)
-        }.mapLeft { throwable ->
-            DomainError.NotFound("Customer", id.value)
-        }
-    }
-    
-    override suspend fun save(customer: Customer): Either<DomainError, Customer> {
-        return Either.catch {
-            val entity = mapper.toEntity(customer)
-            val saved = jpaRepository.save(entity)
-            mapper.toDomain(saved)
-        }.mapLeft { throwable ->
-            InfrastructureError.PersistenceError(throwable).toDomainError()
-        }
-    }
-}
-```
+- **Implements** the ports defined by the application
+- **Handles** all technical concerns
+- **Isolates** your business logic from external changes
+- **Provides** reliable, tested adapters
+- **Enables** easy swapping of implementations
 
-#### MongoDB Repository Implementation
-```kotlin
-@Component
-class MongoOrderRepository(
-    private val mongoTemplate: MongoTemplate
-) : OrderRepository {
-    
-    override suspend fun findByCustomerId(
-        customerId: CustomerId
-    ): Either<DomainError, List<Order>> {
-        return Either.catch {
-            val query = Query.query(Criteria.where("customerId").`is`(customerId.value))
-            mongoTemplate.find(query, OrderDocument::class.java)
-                .map { it.toDomain() }
-        }.mapLeft { throwable ->
-            InfrastructureError.DatabaseError("MongoDB", throwable).toDomainError()
-        }
-    }
-}
-```
-
-### External Service Adapters
-
-#### Payment Gateway Adapter
-```kotlin
-@Component
-class StripePaymentAdapter(
-    private val stripeClient: StripeClient,
-    private val config: PaymentConfig
-) : PaymentServicePort {
-    
-    override suspend fun processPayment(
-        amount: Money,
-        card: CreditCard
-    ): Either<ApplicationError, PaymentResult> {
-        return Either.catch {
-            val charge = stripeClient.charges.create(
-                ChargeCreateParams.builder()
-                    .setAmount(amount.toStripeAmount())
-                    .setCurrency(amount.currency.code)
-                    .setSource(card.token)
-                    .build()
-            )
-            PaymentResult(
-                id = PaymentId(charge.id),
-                status = PaymentStatus.fromStripe(charge.status),
-                amount = amount
-            )
-        }.mapLeft { throwable ->
-            when (throwable) {
-                is StripeException -> ApplicationError.ExternalServiceError(
-                    "Stripe",
-                    throwable.message ?: "Payment failed"
-                )
-                else -> ApplicationError.ExternalServiceError(
-                    "Stripe",
-                    "Unexpected error: ${throwable.message}"
-                )
-            }
-        }
-    }
-}
-```
-
-#### Email Service Adapter
-```kotlin
-@Component
-class SendGridEmailAdapter(
-    private val sendGrid: SendGrid,
-    private val config: EmailConfig
-) : NotificationPort {
-    
-    override suspend fun sendEmail(
-        to: Email,
-        subject: String,
-        body: String
-    ): Either<ApplicationError, Unit> {
-        return Either.catch {
-            val from = com.sendgrid.helpers.mail.objects.Email(config.fromEmail)
-            val toEmail = com.sendgrid.helpers.mail.objects.Email(to.value)
-            val content = Content("text/html", body)
-            val mail = Mail(from, subject, toEmail, content)
-            
-            val request = Request().apply {
-                method = Method.POST
-                endpoint = "mail/send"
-                this.body = mail.build()
-            }
-            
-            val response = sendGrid.api(request)
-            if (response.statusCode !in 200..299) {
-                throw EmailSendException("Failed with status: ${response.statusCode}")
-            }
-        }.mapLeft { throwable ->
-            ApplicationError.ExternalServiceError("SendGrid", throwable.message ?: "Send failed")
-        }
-    }
-}
-```
-
-### Message Queue Adapters
-
-#### Kafka Event Publisher
-```kotlin
-@Component
-class KafkaEventPublisher(
-    private val kafkaTemplate: KafkaTemplate<String, String>,
-    private val objectMapper: ObjectMapper
-) : EventPublisherPort {
-    
-    override suspend fun publish(event: DomainEvent): Either<ApplicationError, Unit> {
-        return Either.catch {
-            val topic = resolveTopicName(event)
-            val key = event.aggregateId
-            val payload = objectMapper.writeValueAsString(event)
-            
-            kafkaTemplate.send(topic, key, payload).get()
-            Unit
-        }.mapLeft { throwable ->
-            ApplicationError.ExternalServiceError("Kafka", "Failed to publish event: ${throwable.message}")
-        }
-    }
-    
-    private fun resolveTopicName(event: DomainEvent): String = when (event) {
-        is OrderCreatedEvent -> "order.created"
-        is PaymentProcessedEvent -> "payment.processed"
-        else -> "domain.events"
-    }
-}
-```
-
-### File System Adapter
-```kotlin
-@Component
-class LocalFileSystemAdapter : FileSystemPort {
-    
-    override suspend fun readFile(path: Path): Either<ApplicationError, String> {
-        return Either.catch {
-            withContext(Dispatchers.IO) {
-                path.readText(Charsets.UTF_8)
-            }
-        }.mapLeft { throwable ->
-            when (throwable) {
-                is NoSuchFileException -> ApplicationError.NotFound("File", path.toString())
-                is AccessDeniedException -> ApplicationError.UnauthorizedError(path.toString())
-                else -> ApplicationError.RepositoryError("FileSystem", throwable.message ?: "Read failed")
-            }
-        }
-    }
-    
-    override suspend fun writeFile(
-        path: Path,
-        content: String
-    ): Either<ApplicationError, Unit> {
-        return Either.catch {
-            withContext(Dispatchers.IO) {
-                path.parent?.createDirectories()
-                path.writeText(content, Charsets.UTF_8)
-            }
-        }.mapLeft { throwable ->
-            ApplicationError.RepositoryError("FileSystem", "Write failed: ${throwable.message}")
-        }
-    }
-}
-```
-
-## Configuration
-
-Infrastructure components are configured through:
-
-```kotlin
-@Configuration
-@ConfigurationProperties(prefix = "infrastructure")
-data class InfrastructureConfig(
-    val database: DatabaseConfig,
-    val external: ExternalServicesConfig,
-    val messaging: MessagingConfig
-)
-
-data class DatabaseConfig(
-    val connectionPool: PoolConfig,
-    val timeout: Duration = Duration.ofSeconds(30)
-)
-
-data class ExternalServicesConfig(
-    val payment: PaymentConfig,
-    val email: EmailConfig,
-    val retryPolicy: RetryPolicy
-)
-
-data class RetryPolicy(
-    val maxAttempts: Int = 3,
-    val backoffMultiplier: Double = 2.0,
-    val initialDelay: Duration = Duration.ofMillis(100)
-)
-```
-
-## Error Handling
-
-All infrastructure errors are properly mapped:
-
-```kotlin
-sealed class InfrastructureError(
-    override val message: String,
-    override val cause: Throwable? = null
-) : Exception(message, cause) {
-    
-    data class DatabaseError(
-        val operation: String,
-        override val cause: Throwable
-    ) : InfrastructureError("Database error during $operation", cause)
-    
-    data class ExternalServiceError(
-        val service: String,
-        override val cause: Throwable
-    ) : InfrastructureError("External service error: $service", cause)
-    
-    data class MessageQueueError(
-        val queue: String,
-        override val cause: Throwable
-    ) : InfrastructureError("Message queue error: $queue", cause)
-    
-    fun toDomainError(): DomainError = when (this) {
-        is DatabaseError -> DomainError.Conflict("Database operation failed: $operation")
-        is ExternalServiceError -> DomainError.Conflict("External service unavailable: $service")
-        is MessageQueueError -> DomainError.Conflict("Message queue error: $queue")
-    }
-}
-```
-
-## Testing Strategy
-
-### Adapter Tests
-Test each adapter with mocked external dependencies:
-```kotlin
-class StripePaymentAdapterTest {
-    private val stripeClient = mockk<StripeClient>()
-    private val adapter = StripePaymentAdapter(stripeClient, testConfig)
-    
-    @Test
-    fun `should process payment successfully`() {
-        // Given
-        every { stripeClient.charges.create(any()) } returns mockCharge
-        
-        // When
-        val result = runBlocking { adapter.processPayment(amount, card) }
-        
-        // Then
-        result.shouldBeRight()
-    }
-}
-```
-
-### Integration Tests
-Test with real external systems using testcontainers:
-```kotlin
-@Testcontainers
-class PostgresRepositoryIntegrationTest {
-    
-    @Container
-    val postgres = PostgreSQLContainer<Nothing>("postgres:15").apply {
-        withDatabaseName("test")
-        withUsername("test")
-        withPassword("test")
-    }
-    
-    @Test
-    fun `should persist and retrieve customer`() {
-        // Test with real database
-    }
-}
-```
-
-## Best Practices
-
-1. **Keep Adapters Thin**: Minimal logic, just translation between ports and external systems
-2. **Handle All Exceptions**: Convert to Either at boundaries, never let exceptions escape
-3. **Use Configuration**: Make adapters configurable, avoid hardcoded values
-4. **Add Observability**: Include logging, metrics, and tracing
-5. **Manage Resources**: Use try-with-resources or Kotlin's use function
-6. **Circuit Breakers**: Add resilience patterns for external services
-7. **Caching**: Implement caching where appropriate for performance
-8. **Idempotency**: Ensure operations can be safely retried
-
-## Output Adapters
-
-Located in `adapter/output/`:
-
-- **ConsoleOutputAdapter** - Writes messages to stdout
-- **FileOutputAdapter** - Writes messages to files asynchronously  
-- **BufferedFileOutputAdapter** - High-performance buffered file writes
-- **CompositeOutputAdapter** - Combines multiple output adapters
-
-### Buffered vs Unbuffered File Output
-
-| Feature | FileOutputAdapter | BufferedFileOutputAdapter |
-|---------|------------------|---------------------------|
-| **Write Latency** | Higher (immediate write) | Lower (queued) |
-| **Throughput** | Lower | Higher (batched writes) |
-| **Memory Usage** | Minimal | Configurable buffer |
-| **Data Durability** | Immediate | Delayed until flush |
-| **Use Case** | Critical logs, audit trails | High-volume logging |
-| **Complexity** | Simple | More complex |
-
-### BufferedFileOutputAdapter Configuration
-
-```kotlin
-// Default configuration
-val adapter = BufferedFileOutputAdapter(
-    filePath = "/var/log/app.log",
-    bufferSize = 8192,           // 8KB buffer
-    flushIntervalMs = 1000,      // Flush every second
-    maxQueueSize = 10000         // Max pending messages
-)
-
-// High-throughput configuration
-val highThroughput = BufferedFileOutputAdapter.highThroughput("/var/log/app.log")
-// Uses: 64KB buffer, 5s flush interval, 50K queue size
-
-// Low-latency configuration  
-val lowLatency = BufferedFileOutputAdapter.lowLatency("/var/log/app.log")
-// Uses: 1KB buffer, 100ms flush interval, 1K queue size
-```
-
-### Performance Characteristics
-
-**BufferedFileOutputAdapter Benefits:**
-- **Reduced I/O Operations**: Batches multiple writes into single disk operation
-- **Non-blocking Sends**: Messages queued immediately, written asynchronously
-- **NIO Channels**: Uses Java NIO for true async file operations
-- **Configurable Trade-offs**: Balance between latency and throughput
-
-**When to Use Buffered Output:**
-- High-volume application logging
-- Metrics and telemetry data
-- Non-critical debugging information
-- Performance-sensitive applications
-
-**When NOT to Use Buffered Output:**
-- Financial transaction logs
-- Security audit trails  
-- Critical error logs
-- Applications prone to crashes (may lose buffered data)
-
-### Implementation Details
-
-The `BufferedFileOutputAdapter` uses:
-- Coroutine channels for lock-free message queuing
-- Single writer coroutine to prevent file corruption
-- Configurable buffer with automatic flushing
-- Graceful shutdown to ensure all data is written
-
-## Common Patterns
-
-### Retry with Exponential Backoff
-```kotlin
-suspend fun <T> retryWithBackoff(
-    policy: RetryPolicy,
-    block: suspend () -> T
-): Either<ApplicationError, T> {
-    var lastError: Throwable? = null
-    var delay = policy.initialDelay.toMillis()
-    
-    repeat(policy.maxAttempts) { attempt ->
-        try {
-            return Either.Right(block())
-        } catch (e: Exception) {
-            lastError = e
-            if (attempt < policy.maxAttempts - 1) {
-                delay(delay)
-                delay = (delay * policy.backoffMultiplier).toLong()
-            }
-        }
-    }
-    
-    return Either.Left(
-        ApplicationError.ExternalServiceError(
-            "Retry",
-            "Failed after ${policy.maxAttempts} attempts: ${lastError?.message}"
-        )
-    )
-}
-```
-
-### Circuit Breaker Pattern
-```kotlin
-class CircuitBreaker(
-    private val failureThreshold: Int = 5,
-    private val timeout: Duration = Duration.ofMinutes(1)
-) {
-    private var failureCount = 0
-    private var lastFailureTime: Instant? = null
-    private var state = State.CLOSED
-    
-    suspend fun <T> execute(block: suspend () -> T): T {
-        when (state) {
-            State.OPEN -> {
-                if (Duration.between(lastFailureTime, Instant.now()) > timeout) {
-                    state = State.HALF_OPEN
-                } else {
-                    throw CircuitBreakerOpenException()
-                }
-            }
-            State.HALF_OPEN, State.CLOSED -> {
-                try {
-                    val result = block()
-                    reset()
-                    return result
-                } catch (e: Exception) {
-                    recordFailure()
-                    throw e
-                }
-            }
-        }
-    }
-}
-```
+Remember: Infrastructure code is allowed to be "messy" - it deals with the real world. The key is keeping this messiness contained and hidden behind clean interfaces!

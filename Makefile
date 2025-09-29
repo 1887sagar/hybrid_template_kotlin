@@ -64,6 +64,10 @@ test-unit: ## Run unit tests only
 test-integration: ## Run integration tests
 	$(GRADLE) test --tests "*IntegrationTest"
 
+.PHONY: test-arch
+test-arch: ## Run architecture tests
+	$(GRADLE) :architecture-tests:test
+
 .PHONY: test-coverage
 test-coverage: ## Run tests with coverage report
 	$(GRADLE) test jacocoTestReport
@@ -180,11 +184,6 @@ run: build ## Run the application
 clean-cache: ## Clean Gradle caches
 	rm -rf ~/.gradle/caches/
 	$(GRADLE) clean build --no-build-cache
-
-
-
-# ---- Gradle "panic button" ---------------------------------------------------
-#SHELL := /bin/bash
 
 # Usage
 # Normal deep clean:

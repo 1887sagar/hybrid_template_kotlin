@@ -1,451 +1,691 @@
-<!--
-  Kotlin Hybrid Architecture Template
-  Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
-  SPDX-License-Identifier: BSD-3-Clause
-  See LICENSE file in the project root.
--->
-
 # Presentation Module
 
-## Overview
+**Version:** 1.0.0  
+**Date:** January 2025  
+**License:** BSD-3-Clause  
+**Copyright:** © 2025 Michael Gardner, A Bit of Help, Inc.  
+**Authors:** Michael Gardner  
+**Status:** Released
 
-The Presentation module is the **outermost layer** that handles all user interactions. It provides REST APIs, GraphQL endpoints, CLI interfaces, and web UI components. This layer formats outputs, handles user input, and coordinates requests by calling the appropriate use cases from the Application layer.
+## What is the Presentation Module?
 
-## Core Principles
+The presentation module is your application's "face" - it's how users interact with your system. Whether through a command line, web API, or graphical interface, this layer handles all the user-facing concerns while keeping the complexity hidden behind clean interfaces.
 
-- **Depends ONLY on Application module** (never on Domain or Infrastructure)
-- **No business logic** - only presentation concerns
-- **Handles input validation and transformation**
-- **Presents results in appropriate formats**
-- **Framework-specific code lives here**
+## Why the Presentation Layer Matters
 
-## Structure
+Think of the presentation layer as the "waitstaff" at a restaurant:
+- Takes orders from customers (handles user input)
+- Translates requests to the kitchen (calls use cases)
+- Presents dishes nicely (formats responses)
+- Handles special requests (error handling)
+- Never cooks the food themselves (no business logic)
 
+## Current Implementation: CLI Interface
+
+Our template currently includes a command-line interface that demonstrates key presentation patterns:
+
+### CLI Runner - The Main Entry Point
+
+```kotlin
+class AsyncCliRunner(
+    private val createGreetingUseCase: CreateGreetingInputPort,
+    private val exitHandler: suspend () -> Unit = { exitProcess(0) }
+) {
+    suspend fun run(args: Array<String>) {
+        val config = parseArgs(args)
+        
+        val command = CreateGreetingCommand(
+            name = config.name,
+            silent = config.silent
+        )
+        
+        // Call the use case and handle the result
+        createGreetingUseCase.execute(command).fold(
+            { error -> 
+                System.err.println("Error: ${error.message}")
+                exitProcess(1)
+            },
+            { result -> 
+                if (!config.silent) {
+                    println("Greeting created: ${result.greeting}")
+                }
+                exitHandler()
+            }
+        )
+    }
+}
 ```
-presentation/
-├── src/
-│   ├── main/
-│   │   └── kotlin/
-│   │       └── com/
-│   │           └── abitofhelp/
-│   │               └── hybrid/
-│   │                   └── presentation/
-│   │                       ├── api/            # REST/GraphQL endpoints
-│   │                       │   ├── rest/       # REST controllers
-│   │                       │   │   ├── v1/     # API version 1
-│   │                       │   │   └── v2/     # API version 2
-│   │                       │   ├── graphql/    # GraphQL resolvers
-│   │                       │   └── websocket/  # WebSocket handlers
-│   │                       ├── cli/            # Command-line interface
-│   │                       │   ├── commands/   # CLI command implementations
-│   │                       │   ├── options/    # Command options and flags
-│   │                       │   └── output/     # Output formatters
-│   │                       ├── web/            # Web UI (if applicable)
-│   │                       │   ├── controllers/ # MVC controllers
-│   │                       │   └── views/      # View templates
-│   │                       ├── dto/            # Presentation DTOs
-│   │                       ├── mapper/         # DTO mappers
-│   │                       ├── validation/     # Input validation
-│   │                       ├── security/       # Authentication/authorization
-│   │                       └── error/          # Error handlers
-│   └── test/
-│       └── kotlin/
-│           └── com/
-│               └── abitofhelp/
-│                   └── hybrid/
-│                       └── presentation/       # Presentation tests
-└── build.gradle.kts                           # Module build configuration
+
+**Key Responsibilities:**
+- Parse command-line arguments
+- Transform them into application commands  
+- Call appropriate use cases
+- Handle errors gracefully
+- Format output for users
+
+### Pure Async CLI - The Interface Contract
+
+```kotlin
+interface PureAsyncCli {
+    suspend fun run(args: Array<String>)
+}
+
+class PureAsyncCliImpl(
+    private val runner: AsyncCliRunner
+) : PureAsyncCli {
+    override suspend fun run(args: Array<String>) {
+        runner.run(args)
+    }
+}
 ```
 
-## Key Components
+This shows the **Adapter Pattern** - the interface defines what we need, and the implementation provides how it's done.
 
-### REST Controllers
+## Expanding to Other Interfaces
+
+### Web API Example
+
+Here's how you might add a REST API to the same application:
 
 ```kotlin
 @RestController
-@RequestMapping("/api/v1/orders")
-class OrderController(
-    private val createOrderUseCase: CreateOrderUseCase,
-    private val getOrderUseCase: GetOrderDetailsUseCase,
-    private val listOrdersUseCase: ListOrdersUseCase
+@RequestMapping("/api/v1")
+class GreetingController(
+    private val createGreetingUseCase: CreateGreetingInputPort
 ) {
     
-    @PostMapping
-    suspend fun createOrder(
-        @Valid @RequestBody request: CreateOrderRequest
-    ): ResponseEntity<OrderResponse> {
-        val command = request.toCommand()
+    @PostMapping("/greetings")
+    suspend fun createGreeting(
+        @RequestBody request: CreateGreetingRequest
+    ): ResponseEntity<GreetingResponse> {
         
-        return createOrderUseCase(command).fold(
-            { error -> ResponseEntity.status(error.toHttpStatus()).body(error.toResponse()) },
-            { order -> ResponseEntity.ok(OrderResponse.from(order)) }
+        val command = CreateGreetingCommand(
+            name = request.name,
+            silent = false  // API responses aren't silent
         )
-    }
-    
-    @GetMapping("/{id}")
-    suspend fun getOrder(
-        @PathVariable id: String
-    ): ResponseEntity<OrderResponse> {
-        return getOrderUseCase(id).fold(
-            { error -> ResponseEntity.status(error.toHttpStatus()).body(error.toResponse()) },
-            { order -> ResponseEntity.ok(OrderResponse.from(order)) }
-        )
-    }
-    
-    @GetMapping
-    suspend fun listOrders(
-        @RequestParam(defaultValue = "0") page: Int,
-        @RequestParam(defaultValue = "20") size: Int,
-        @RequestParam(required = false) customerId: String?
-    ): ResponseEntity<PagedResponse<OrderResponse>> {
-        val query = ListOrdersQuery(page, size, customerId)
         
-        return listOrdersUseCase(query).fold(
-            { error -> ResponseEntity.status(error.toHttpStatus()).body(error.toResponse()) },
-            { orders -> ResponseEntity.ok(PagedResponse.from(orders)) }
+        return createGreetingUseCase.execute(command).fold(
+            { error -> 
+                ResponseEntity.badRequest()
+                    .body(ErrorResponse(error.message))
+            },
+            { result -> 
+                ResponseEntity.ok(
+                    GreetingResponse(
+                        greeting = result.greeting,
+                        personName = result.personName
+                    )
+                )
+            }
         )
     }
 }
 ```
 
-### GraphQL Resolvers
+**Notice:** Both CLI and REST API use the exact same use case - just different presentation!
+
+### GraphQL Example
 
 ```kotlin
 @Component
-class OrderResolver(
-    private val createOrderUseCase: CreateOrderUseCase,
-    private val orderQueryService: OrderQueryService
-) : GraphQLMutationResolver, GraphQLQueryResolver {
-    
-    suspend fun createOrder(input: CreateOrderInput): Order {
-        val command = input.toCommand()
-        return createOrderUseCase(command).fold(
-            { error -> throw GraphQLException(error.message) },
-            { order -> order }
-        )
-    }
-    
-    suspend fun order(id: String): Order? {
-        return orderQueryService.findById(id).fold(
-            { null },
-            { it }
-        )
-    }
-    
-    suspend fun orders(
-        first: Int = 20,
-        after: String? = null
-    ): OrderConnection {
-        return orderQueryService.findAll(first, after)
-    }
-}
-```
-
-### CLI Commands
-
-```kotlin
-@Component
-class OrderCli : CliktCommand(name = "order") {
-    
-    override fun run() = Unit
-}
-
-@Component
-class CreateOrderCommand(
-    private val createOrderUseCase: CreateOrderUseCase
-) : CliktCommand(name = "create", help = "Create a new order") {
-    
-    private val customer by option("-c", "--customer", help = "Customer ID").required()
-    private val items by option("-i", "--items", help = "Items as JSON").required()
-    private val format by option("-f", "--format").choice("json", "yaml", "table").default("table")
-    
-    override fun run() {
-        val command = CreateOrderCommand(
-            customerId = customer,
-            items = Json.decodeFromString(items)
-        )
-        
-        val result = runBlocking {
-            createOrderUseCase(command)
-        }
-        
-        result.fold(
-            { error -> echo(error.format(), err = true) },
-            { order -> echo(formatOutput(order, format)) }
-        )
-    }
-}
-```
-
-### Request/Response DTOs
-
-```kotlin
-// Request DTO with validation
-data class CreateOrderRequest(
-    @field:NotBlank(message = "Customer ID is required")
-    val customerId: String,
-    
-    @field:NotEmpty(message = "Order must contain at least one item")
-    @field:Valid
-    val items: List<OrderItemRequest>
+class GreetingResolver(
+    private val createGreetingUseCase: CreateGreetingInputPort
 ) {
-    fun toCommand() = CreateOrderCommand(
-        customerId = customerId,
-        items = items.map { it.toDomain() }
-    )
+    
+    @SchemaMapping(typeName = "Mutation", field = "createGreeting")
+    suspend fun createGreeting(
+        @Argument input: CreateGreetingInput
+    ): GreetingPayload {
+        
+        val command = CreateGreetingCommand(
+            name = input.name,
+            silent = false
+        )
+        
+        return createGreetingUseCase.execute(command).fold(
+            { error -> 
+                GreetingPayload(
+                    greeting = null,
+                    error = error.message
+                )
+            },
+            { result -> 
+                GreetingPayload(
+                    greeting = Greeting(
+                        message = result.greeting,
+                        personName = result.personName
+                    ),
+                    error = null
+                )
+            }
+        )
+    }
 }
+```
 
-data class OrderItemRequest(
-    @field:NotBlank(message = "Product ID is required")
-    val productId: String,
-    
-    @field:Min(1, message = "Quantity must be at least 1")
-    val quantity: Int,
-    
-    @field:DecimalMin("0.01", message = "Price must be positive")
-    val price: BigDecimal
+## Request/Response Pattern
+
+### Input DTOs (Requests)
+
+```kotlin
+// For CLI
+data class CliConfig(
+    val name: String?,
+    val silent: Boolean = false
 )
 
-// Response DTO
-data class OrderResponse(
-    val id: String,
-    val customerId: String,
-    val items: List<OrderItemResponse>,
-    val total: BigDecimal,
-    val status: String,
-    val createdAt: Instant
-) {
-    companion object {
-        fun from(order: OrderDto) = OrderResponse(
-            id = order.id,
-            customerId = order.customerId,
-            items = order.items.map { OrderItemResponse.from(it) },
-            total = order.total,
-            status = order.status,
-            createdAt = order.createdAt
-        )
-    }
-}
+// For REST API
+data class CreateGreetingRequest(
+    @field:Size(max = 100, message = "Name cannot exceed 100 characters")
+    val name: String?
+)
+
+// For GraphQL
+data class CreateGreetingInput(
+    val name: String?
+)
 ```
 
-### Error Handling
+### Output DTOs (Responses)
+
+```kotlin
+// For REST API
+data class GreetingResponse(
+    val greeting: String,
+    val personName: String,
+    val timestamp: Instant = Instant.now()
+)
+
+// For GraphQL
+data class GreetingPayload(
+    val greeting: Greeting?,
+    val error: String?
+)
+
+data class Greeting(
+    val message: String,
+    val personName: String
+)
+```
+
+## Error Handling Patterns
+
+### HTTP Error Mapping
 
 ```kotlin
 @ControllerAdvice
 class GlobalExceptionHandler {
     
     @ExceptionHandler(ApplicationError::class)
-    fun handleApplicationError(error: ApplicationError): ResponseEntity<ErrorResponse> {
-        val status = when (error) {
-            is ApplicationError.ValidationError -> HttpStatus.BAD_REQUEST
-            is ApplicationError.UnauthorizedError -> HttpStatus.UNAUTHORIZED
-            is ApplicationError.NotFoundError -> HttpStatus.NOT_FOUND
-            else -> HttpStatus.INTERNAL_SERVER_ERROR
+    fun handleApplicationError(
+        error: ApplicationError
+    ): ResponseEntity<ErrorResponse> {
+        
+        val (status, message) = when (error) {
+            is ApplicationError.ValidationError -> 
+                HttpStatus.BAD_REQUEST to "Invalid input: ${error.message}"
+            is ApplicationError.BusinessRuleError -> 
+                HttpStatus.UNPROCESSABLE_ENTITY to error.message
+            is ApplicationError.NotFoundError -> 
+                HttpStatus.NOT_FOUND to "Resource not found"
+            else -> 
+                HttpStatus.INTERNAL_SERVER_ERROR to "An unexpected error occurred"
         }
         
-        return ResponseEntity
-            .status(status)
+        return ResponseEntity.status(status)
             .body(ErrorResponse(
                 code = error.code,
-                message = error.message,
+                message = message,
                 timestamp = Instant.now()
             ))
     }
+}
+```
+
+### CLI Error Handling
+
+```kotlin
+fun handleCliError(error: ApplicationError): Int {
+    val (exitCode, message) = when (error) {
+        is ApplicationError.ValidationError -> 2 to "Invalid input: ${error.message}"
+        is ApplicationError.BusinessRuleError -> 3 to "Error: ${error.message}"
+        else -> 1 to "Unexpected error: ${error.message}"
+    }
     
-    @ExceptionHandler(ConstraintViolationException::class)
-    fun handleValidationError(ex: ConstraintViolationException): ResponseEntity<ValidationErrorResponse> {
-        val errors = ex.constraintViolations.map { violation ->
-            ValidationError(
-                field = violation.propertyPath.toString(),
-                message = violation.message
-            )
-        }
+    System.err.println(message)
+    return exitCode
+}
+```
+
+## Input Validation
+
+### Bean Validation (REST/GraphQL)
+
+```kotlin
+data class CreateUserRequest(
+    @field:NotBlank(message = "Email is required")
+    @field:Email(message = "Must be a valid email")
+    val email: String,
+    
+    @field:NotBlank(message = "Name is required")
+    @field:Size(min = 2, max = 50, message = "Name must be 2-50 characters")
+    val name: String,
+    
+    @field:Min(value = 18, message = "Must be at least 18 years old")
+    val age: Int
+)
+```
+
+### CLI Validation
+
+```kotlin
+fun parseAndValidateArgs(args: Array<String>): Either<ValidationError, CliConfig> {
+    if (args.isEmpty()) {
+        return CliConfig(name = null).right()
+    }
+    
+    val name = args[0]
+    if (name.length > 100) {
+        return ValidationError("Name cannot exceed 100 characters").left()
+    }
+    
+    val silent = args.contains("--silent")
+    
+    return CliConfig(name = name, silent = silent).right()
+}
+```
+
+## Security Considerations
+
+### Authentication (REST)
+
+```kotlin
+@RestController
+class SecureGreetingController(
+    private val createGreetingUseCase: CreateGreetingInputPort
+) {
+    
+    @PostMapping("/greetings")
+    @PreAuthorize("hasRole('USER')")
+    suspend fun createGreeting(
+        authentication: Authentication,
+        @RequestBody request: CreateGreetingRequest
+    ): ResponseEntity<GreetingResponse> {
         
-        return ResponseEntity
-            .badRequest()
-            .body(ValidationErrorResponse(errors))
-    }
-}
-```
-
-### Security Configuration
-
-```kotlin
-@EnableWebSecurity
-@Configuration
-class SecurityConfig {
-    
-    @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
-        return http
-            .authorizeHttpRequests { auth ->
-                auth
-                    .requestMatchers("/api/v1/public/**").permitAll()
-                    .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                    .anyRequest().authenticated()
-            }
-            .oauth2ResourceServer { oauth2 ->
-                oauth2.jwt()
-            }
-            .cors { cors ->
-                cors.configurationSource(corsConfigurationSource())
-            }
-            .build()
-    }
-    
-    @Bean
-    fun corsConfigurationSource(): CorsConfigurationSource {
-        val configuration = CorsConfiguration().apply {
-            allowedOrigins = listOf("http://localhost:3000")
-            allowedMethods = listOf("GET", "POST", "PUT", "DELETE")
-            allowedHeaders = listOf("*")
-            allowCredentials = true
-        }
+        val userId = authentication.name
+        val command = CreateGreetingCommand(
+            name = request.name ?: userId,
+            silent = false
+        )
         
-        val source = UrlBasedCorsConfigurationSource()
-        source.registerCorsConfiguration("/api/**", configuration)
-        return source
+        // Rest of the implementation...
     }
 }
 ```
 
-### Application Bootstrap
+### Rate Limiting
 
 ```kotlin
-@SpringBootApplication
-@ComponentScan(basePackages = ["com.abitofhelp.hybrid"])
-class Application {
-    companion object {
-        @JvmStatic
-        fun main(args: Array<String>) {
-            SpringApplication.run(Application::class.java, *args)
-        }
-    }
-}
-
-@Configuration
-class ApplicationConfig {
+@Component
+class RateLimitingInterceptor : HandlerInterceptor {
     
-    @Bean
-    fun objectMapper(): ObjectMapper = jacksonObjectMapper().apply {
-        registerModule(JavaTimeModule())
-        registerModule(KotlinModule())
-        disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-    }
+    private val rateLimiter = RateLimiter.create(10.0) // 10 requests per second
     
-    @Bean
-    fun webMvcConfigurer(): WebMvcConfigurer = object : WebMvcConfigurer {
-        override fun configureContentNegotiation(configurer: ContentNegotiationConfigurer) {
-            configurer
-                .favorParameter(true)
-                .parameterName("format")
-                .ignoreAcceptHeader(false)
-                .defaultContentType(MediaType.APPLICATION_JSON)
-                .mediaType("json", MediaType.APPLICATION_JSON)
-                .mediaType("xml", MediaType.APPLICATION_XML)
+    override fun preHandle(
+        request: HttpServletRequest,
+        response: HttpServletResponse,
+        handler: Any
+    ): Boolean {
+        if (!rateLimiter.tryAcquire()) {
+            response.status = HttpStatus.TOO_MANY_REQUESTS.value()
+            response.writer.write("Rate limit exceeded")
+            return false
         }
+        return true
     }
 }
 ```
 
-## API Documentation
-
-### OpenAPI/Swagger Configuration
-```kotlin
-@Configuration
-class OpenApiConfig {
-    
-    @Bean
-    fun openApi(): OpenAPI = OpenAPI()
-        .info(Info()
-            .title("Order Management API")
-            .version("1.0.0")
-            .description("API for managing customer orders")
-            .contact(Contact()
-                .name("API Support")
-                .email("api@example.com")))
-        .components(Components()
-            .addSecuritySchemes("bearer-key",
-                SecurityScheme()
-                    .type(SecurityScheme.Type.HTTP)
-                    .scheme("bearer")
-                    .bearerFormat("JWT")))
-}
-```
-
-## Dependencies
-
-- **Application module only**: For use cases and DTOs
-- **Spring Boot**: For REST/Web framework
-- **Spring Security**: For authentication/authorization
-- **Clikt**: For CLI implementation
-- **Jackson/Kotlinx Serialization**: For JSON handling
-- **Bean Validation**: For input validation
-- **No direct domain or infrastructure dependencies**
-
-## Testing Strategy
+## Testing Strategies
 
 ### Controller Tests
+
 ```kotlin
-@WebMvcTest(OrderController::class)
-class OrderControllerTest {
+@WebMvcTest(GreetingController::class)
+class GreetingControllerTest {
     
-    @MockkBean
-    lateinit var createOrderUseCase: CreateOrderUseCase
+    @MockBean
+    lateinit var createGreetingUseCase: CreateGreetingInputPort
     
     @Autowired
     lateinit var mockMvc: MockMvc
     
     @Test
-    fun `should create order successfully`() {
+    fun `should create greeting successfully`() {
         // Given
-        val request = createOrderRequest()
-        coEvery { createOrderUseCase(any()) } returns Either.Right(orderDto())
+        val request = CreateGreetingRequest("Alice")
+        val expectedResult = GreetingResult("Hello, Alice!", "Alice")
+        
+        every { createGreetingUseCase.execute(any()) } returns expectedResult.right()
         
         // When & Then
-        mockMvc.post("/api/v1/orders") {
+        mockMvc.post("/api/v1/greetings") {
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(request)
         }.andExpect {
             status { isOk() }
-            jsonPath("$.id") { exists() }
-            jsonPath("$.status") { value("PENDING") }
+            jsonPath("$.greeting") { value("Hello, Alice!") }
+            jsonPath("$.personName") { value("Alice") }
+        }
+    }
+    
+    @Test
+    fun `should handle validation errors`() {
+        // Given
+        val invalidRequest = CreateGreetingRequest("A".repeat(101)) // Too long
+        
+        // When & Then
+        mockMvc.post("/api/v1/greetings") {
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(invalidRequest)
+        }.andExpect {
+            status { isBadRequest() }
+            jsonPath("$.message") { value("Name cannot exceed 100 characters") }
         }
     }
 }
 ```
 
-### Integration Tests
+### CLI Tests
+
 ```kotlin
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureMockMvc
-class OrderApiIntegrationTest {
+class AsyncCliRunnerTest : DescribeSpec({
     
-    @Autowired
-    lateinit var mockMvc: MockMvc
+    describe("CLI Runner") {
+        val mockUseCase = mockk<CreateGreetingInputPort>()
+        var exitCode = 0
+        val exitHandler = suspend { exitCode = 0 }
+        
+        val runner = AsyncCliRunner(mockUseCase, exitHandler)
+        
+        it("should handle successful greeting creation") {
+            // Given
+            val result = GreetingResult("Hello, Alice!", "Alice")
+            every { mockUseCase.execute(any()) } returns result.right()
+            
+            // When
+            runBlocking { runner.run(arrayOf("Alice")) }
+            
+            // Then
+            exitCode shouldBe 0
+            verify { mockUseCase.execute(any()) }
+        }
+        
+        it("should handle use case errors") {
+            // Given
+            val error = ApplicationError.ValidationError("name", "Invalid name")
+            every { mockUseCase.execute(any()) } returns error.left()
+            
+            // When
+            runBlocking { runner.run(arrayOf("")) }
+            
+            // Then
+            exitCode shouldBe 1
+        }
+    }
+})
+```
+
+## API Documentation
+
+### OpenAPI/Swagger
+
+```kotlin
+@Operation(
+    summary = "Create a greeting",
+    description = "Creates a personalized greeting message for a user"
+)
+@ApiResponses(
+    value = [
+        ApiResponse(
+            responseCode = "200",
+            description = "Greeting created successfully",
+            content = [Content(schema = Schema(implementation = GreetingResponse::class))]
+        ),
+        ApiResponse(
+            responseCode = "400",
+            description = "Invalid input",
+            content = [Content(schema = Schema(implementation = ErrorResponse::class))]
+        )
+    ]
+)
+@PostMapping("/greetings")
+suspend fun createGreeting(
+    @Parameter(description = "Greeting request details")
+    @RequestBody request: CreateGreetingRequest
+): ResponseEntity<GreetingResponse>
+```
+
+## Content Negotiation
+
+Support multiple response formats:
+
+```kotlin
+@GetMapping("/greetings/{id}", produces = [
+    MediaType.APPLICATION_JSON_VALUE,
+    MediaType.APPLICATION_XML_VALUE,
+    "text/csv"
+])
+suspend fun getGreeting(
+    @PathVariable id: String,
+    @RequestHeader("Accept") acceptHeader: String
+): ResponseEntity<Any> {
     
-    @Test
-    fun `should complete order creation flow`() {
-        // Test complete API flow
+    return createGreetingUseCase.execute(command).fold(
+        { error -> ResponseEntity.badRequest().body(error) },
+        { result ->
+            val response = when {
+                acceptHeader.contains("xml") -> result.toXml()
+                acceptHeader.contains("csv") -> result.toCsv()
+                else -> result.toJson()
+            }
+            ResponseEntity.ok(response)
+        }
+    )
+}
+```
+
+## Performance Optimization
+
+### Caching
+
+```kotlin
+@RestController
+class CachedGreetingController(
+    private val createGreetingUseCase: CreateGreetingInputPort
+) {
+    
+    @GetMapping("/greetings/{name}")
+    @Cacheable(value = ["greetings"], key = "#name")
+    suspend fun getGreeting(@PathVariable name: String): ResponseEntity<GreetingResponse> {
+        
+        val command = CreateGreetingCommand(name = name)
+        
+        return createGreetingUseCase.execute(command).fold(
+            { error -> ResponseEntity.badRequest().body(error.toResponse()) },
+            { result -> ResponseEntity.ok(result.toResponse()) }
+        )
     }
 }
 ```
 
-## Best Practices
+### Async Processing
 
-1. **Thin Controllers**: Keep controllers focused on HTTP concerns only
-2. **DTO Validation**: Validate all input at the boundary
-3. **Error Mapping**: Convert application errors to appropriate HTTP responses
-4. **API Versioning**: Use URL versioning for REST APIs
-5. **Content Negotiation**: Support multiple response formats
-6. **HATEOAS**: Include links in responses for discoverability
-7. **Rate Limiting**: Implement rate limiting for API endpoints
-8. **API Documentation**: Keep OpenAPI specs up-to-date
+```kotlin
+@PostMapping("/greetings/async")
+suspend fun createGreetingAsync(
+    @RequestBody request: CreateGreetingRequest
+): ResponseEntity<AsyncResponse> {
+    
+    val taskId = UUID.randomUUID().toString()
+    
+    // Process asynchronously
+    GlobalScope.launch {
+        val command = request.toCommand()
+        createGreetingUseCase.execute(command)
+        // Store result with taskId for later retrieval
+    }
+    
+    return ResponseEntity.accepted()
+        .body(AsyncResponse(
+            taskId = taskId,
+            status = "PROCESSING",
+            statusUrl = "/api/v1/tasks/$taskId"
+        ))
+}
+```
 
-## Important Notes
+## Module Structure
 
-1. **No Business Logic**: All business logic stays in domain/application layers
-2. **Framework Agnostic Core**: Presentation depends on application abstractions
-3. **Security at the Edge**: Handle authentication/authorization here
-4. **Observability**: Add logging, metrics, and tracing
-5. **Graceful Degradation**: Handle failures with appropriate fallbacks
+```
+presentation/
+├── src/
+│   ├── main/
+│   │   └── kotlin/
+│   │       └── com/abitofhelp/hybrid/presentation/
+│   │           ├── cli/                # Command-line interface
+│   │           │   ├── AsyncCliRunner.kt
+│   │           │   ├── PureAsyncCli.kt
+│   │           │   └── CliFactory.kt
+│   │           ├── api/                # Web API (when added)
+│   │           │   ├── rest/           # REST controllers
+│   │           │   ├── graphql/        # GraphQL resolvers
+│   │           │   └── websocket/      # WebSocket handlers
+│   │           ├── dto/                # Request/Response DTOs
+│   │           ├── validation/         # Input validation
+│   │           ├── security/           # Security configuration
+│   │           └── error/              # Error handlers
+│   └── test/
+│       └── kotlin/
+│           └── com/abitofhelp/hybrid/presentation/
+│               ├── cli/                # CLI tests
+│               └── api/                # API tests
+└── build.gradle.kts
+```
+
+## Common Patterns and Solutions
+
+### Pattern: Command Factory
+
+```kotlin
+object CommandFactory {
+    fun createGreetingCommand(
+        request: CreateGreetingRequest,
+        userContext: UserContext? = null
+    ): CreateGreetingCommand {
+        return CreateGreetingCommand(
+            name = request.name ?: userContext?.displayName,
+            silent = request.silent ?: false
+        )
+    }
+}
+```
+
+### Pattern: Response Builder
+
+```kotlin
+class GreetingResponseBuilder {
+    fun build(
+        result: GreetingResult,
+        request: HttpServletRequest
+    ): GreetingResponse {
+        return GreetingResponse(
+            greeting = result.greeting,
+            personName = result.personName,
+            timestamp = Instant.now(),
+            metadata = ResponseMetadata(
+                requestId = request.getHeader("X-Request-ID"),
+                version = "1.0"
+            )
+        )
+    }
+}
+```
+
+### Pattern: Middleware/Filters
+
+```kotlin
+@Component
+class LoggingFilter : Filter {
+    override fun doFilter(
+        request: ServletRequest,
+        response: ServletResponse,
+        chain: FilterChain
+    ) {
+        val httpRequest = request as HttpServletRequest
+        val httpResponse = response as HttpServletResponse
+        
+        val startTime = System.currentTimeMillis()
+        
+        try {
+            chain.doFilter(request, response)
+        } finally {
+            val duration = System.currentTimeMillis() - startTime
+            logger.info(
+                "Request: {} {} - Status: {} - Duration: {}ms",
+                httpRequest.method,
+                httpRequest.requestURI,
+                httpResponse.status,
+                duration
+            )
+        }
+    }
+}
+```
+
+## Best Practices Checklist
+
+### ✅ DO:
+- Keep controllers thin - only handle HTTP concerns
+- Validate input at the boundary
+- Transform between DTOs and commands/queries
+- Handle errors gracefully with proper HTTP status codes
+- Use appropriate response formats (JSON, XML, etc.)
+- Implement proper logging and monitoring
+- Cache responses when appropriate
+- Support API versioning
+
+### ❌ DON'T:
+- Put business logic in controllers
+- Let domain objects leak through DTOs
+- Ignore security concerns
+- Skip input validation
+- Return internal error details to users
+- Block threads with synchronous operations
+- Couple presentation to specific frameworks more than necessary
+
+## Troubleshooting
+
+### Problem: "Controller is getting complex"
+**Solution**: Extract logic into separate service classes. Controllers should only handle HTTP concerns.
+
+### Problem: "Too much duplication between different interfaces"
+**Solution**: Create shared DTOs and mapper utilities.
+
+### Problem: "Error handling is inconsistent"
+**Solution**: Use global exception handlers and standardized error response formats.
+
+### Problem: "API responses are slow"
+**Solution**: Implement caching, async processing, and database query optimization.
+
+## Summary
+
+The presentation layer is your user's window into your application. It should:
+
+- **Handle** all user interactions professionally
+- **Transform** between external formats and internal commands
+- **Validate** input before it reaches your core logic
+- **Present** results in user-friendly formats
+- **Remain** agnostic to business rules
+
+Remember: The presentation layer is like a good translator - it makes communication smooth but never changes the meaning!

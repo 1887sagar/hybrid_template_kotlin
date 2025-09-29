@@ -8,8 +8,8 @@ if ! command -v plantuml &> /dev/null; then
     exit 1
 fi
 
-# Change to docs/diagrams directory
-cd "$(dirname "$0")/docs/diagrams" || exit 1
+# Change to docs/diagrams directory (go up one level from scripts, then into docs/diagrams)
+cd "$(dirname "$0")/../docs/diagrams" || exit 1
 
 echo "Generating SVG diagrams from PlantUML files..."
 

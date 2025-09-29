@@ -1,5 +1,13 @@
 # Scripts Directory
 
+**Version:** 1.0.0
+**Date:** January 2025
+**SPDX-License-Identifier:** BSD-3-Clause
+**License File:** See LICENSE file in the project root.
+**Copyright:** © 2025 Michael Gardner, A Bit of Help, Inc.
+**Authors:** Michael Gardner
+**Status:** Released
+
 ## Overview
 
 This directory contains utility scripts for common development and maintenance tasks.

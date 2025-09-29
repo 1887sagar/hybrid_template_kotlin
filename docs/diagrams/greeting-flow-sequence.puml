@@ -1,120 +1,157 @@
 @startuml greeting-flow-sequence
 !theme plain
-title Create Greeting Flow - Sequence Diagram
+title Greeting Creation Flow - Async Sequence Diagram
+caption Shows the complete flow from CLI input to greeting output using modern async architecture
 
-actor User
-participant "main()" as Main
-participant "App" as App
-participant "CompositionRoot" as CR
-participant "CLI\nFactory" as CLI
-participant "CreateGreeting\nUseCase" as UC
-participant "PersonName" as PN
-participant "DefaultGreeting\nService" as GS
-participant "GreetingPolicy" as GP
-participant "ConsoleOutput\nAdapter" as OUT
+skinparam participant {
+    BackgroundColor<<Actor>> #F0F8FF
+    BackgroundColor<<Bootstrap>> #FFCCCC
+    BackgroundColor<<Presentation>> #B4FFE5
+    BackgroundColor<<Application>> #B4E5FF
+    BackgroundColor<<Domain>> #FFE5B4
+    BackgroundColor<<Infrastructure>> #E5B4FF
+    BorderColor Black
+}
 
-== Startup and Dependency Wiring ==
+actor "User" as User <<Actor>>
+participant "AsyncEntryPoint" as Entry <<Bootstrap>>
+participant "SecureArgParser" as Parser <<Bootstrap>>
+participant "CompositionRoot" as Root <<Bootstrap>>
+participant "PureAsyncCli" as CLI <<Presentation>>
+participant "CreateGreetingUseCase" as UseCase <<Application>>
+participant "PersonName" as Name <<Domain>>
+participant "DefaultGreetingService" as Service <<Infrastructure>>
+participant "GreetingPolicy" as Policy <<Domain>>
+participant "ConsoleOutputAdapter" as Output <<Infrastructure>>
+participant "ConsoleErrorOutputAdapter" as ErrorOutput <<Infrastructure>>
 
-User -> Main: Run with args\n["John"]
-activate Main
+== Startup and Signal Handling ==
 
-Main -> App: run(args)
-activate App
+User -> Entry: Execute with args ["Alice"]
+activate Entry
+note right of Entry: Installs signal handlers\nfor graceful shutdown
 
-App -> App: parseArgs(args)
-note right: Extract name, verbose,\nand outputPath
+Entry -> Parser: parseArgs(args)
+activate Parser
+Parser -> Parser: Validate arguments\nSecurity checks
+Parser --> Entry: AppConfig(name="Alice")
+deactivate Parser
 
-App -> CR: buildProgram(config)
-activate CR
+Entry -> Root: buildAndRunAsync(config)
+activate Root
 
-CR -> CR: Wire dependencies
-note right
-  1. Create infrastructure
-  2. Create use cases
-  3. Create presentation
+Root -> Root: Wire dependencies
+note right of Root
+    Creates:
+    • DefaultGreetingService
+    • ConsoleOutputAdapter
+    • ConsoleErrorOutputAdapter
+    • CreateGreetingUseCase
+    • PureAsyncCli
 end note
 
-CR -> CLI: cli(config, useCase)
-activate CLI
-CLI --> CR: Runnable
-deactivate CLI
+== Async Execution ==
 
-CR --> App: () -> Int
-deactivate CR
-
-== Execution Flow ==
-
-App -> CLI: runnable.run()
+Root -> CLI: runAsync()
 activate CLI
 
-CLI -> CLI: Create command
-note right: CreateGreetingCommand\n(name="John")
+CLI -> CLI: Create command object
+note right of CLI: CreateGreetingCommand\n(name="Alice")
 
-CLI -> UC: execute(command)
-activate UC
+CLI -> UseCase: execute(command)
+activate UseCase
 
-UC -> PN: create("John")
-activate PN
+UseCase -> Name: of("Alice")
+activate Name
+Name -> Name: Validate input
+note right of Name
+    Rules:
+    • Not blank/empty
+    • 1-50 characters
+    • Letters and spaces only
+    • Trim whitespace
+end note
 
-PN -> PN: Validate name
-note right: Check blank\nCheck pattern\nTrim whitespace
+alt Valid Name
+    Name --> UseCase: Either.Right(PersonName("Alice"))
+    deactivate Name
+    
+    UseCase -> Service: createGreeting(personName, format)
+    activate Service
+    
+    Service -> Policy: determineFormat(personName)
+    activate Policy
+    Policy -> Policy: Apply business rules
+    note right of Policy
+        Logic:
+        • Anonymous → CASUAL
+        • Named users → FRIENDLY
+    end note
+    Policy --> Service: GreetingFormat.FRIENDLY
+    deactivate Policy
+    
+    Service -> Service: Generate greeting text
+    note right of Service: "Hello World from Alice!"
+    
+    Service --> UseCase: Either.Right("Hello World from Alice!")
+    deactivate Service
+    
+    UseCase -> Output: send("Hello World from Alice!")
+    activate Output
+    Output -> Output: Validate message
+    Output -> Output: Write to System.out
+    Output --> UseCase: Either.Right(Unit)
+    deactivate Output
+    
+    UseCase --> CLI: Either.Right(GreetingResult)
+    deactivate UseCase
+    
+    CLI -> CLI: Log success (if verbose)
+    CLI --> Root: 0 (success)
 
-PN --> UC: Either.Right(PersonName)
-deactivate PN
+else Invalid Name
+    Name --> UseCase: Either.Left(ValidationError)
+    deactivate Name
+    
+    UseCase -> ErrorOutput: sendError("Invalid name: ...")
+    activate ErrorOutput
+    ErrorOutput -> ErrorOutput: Write to System.err
+    ErrorOutput --> UseCase: Either.Right(Unit)
+    deactivate ErrorOutput
+    
+    UseCase --> CLI: Either.Left(ApplicationError)
+    deactivate UseCase
+    
+    CLI -> CLI: Handle error gracefully
+    CLI --> Root: 1 (error)
+end
 
-UC -> GS: createGreeting(personName)
-activate GS
-
-GS -> GP: determineGreetingFormat(name)
-activate GP
-
-GP -> GP: Apply rules
-note right: Length > 20? FORMAL\nAnonymous? DEFAULT\nElse? FRIENDLY
-
-GP --> GS: GreetingFormat.FRIENDLY
-deactivate GP
-
-GS -> GS: Generate greeting
-note right: "Hey there, John!\nWelcome!"
-
-GS -> GS: Validate length
-note right: Check against\nMAX_GREETING_LENGTH
-
-GS --> UC: Either.Right(greeting)
-deactivate GS
-
-UC -> OUT: send(greeting)
-activate OUT
-
-OUT -> OUT: Validate message
-note right: Check not blank
-
-OUT -> OUT: println(message)
-OUT --> UC: Either.Right(Unit)
-deactivate OUT
-
-UC --> CLI: Either.Right(GreetingResult)
-deactivate UC
-
-CLI -> CLI: Handle success
-note right: If verbose, print\n"[INFO] Greeting delivered"
-
-CLI --> App: (returns)
 deactivate CLI
+Root --> Entry: Exit code
+deactivate Root
 
-App --> Main: 0 (success)
-deactivate App
+Entry -> Entry: Cleanup and shutdown
+Entry --> User: Process exit
+deactivate Entry
 
-Main -> Main: exitProcess(0)
-deactivate Main
+== Error Propagation Pattern ==
 
-== Error Handling Example ==
+note over UseCase, ErrorOutput
+    <b>Functional Error Handling:</b>
+    • All operations return Either<Error, Success>
+    • Errors bubble up through layers
+    • No exceptions for business logic failures
+    • Separate error output channel
+end note
 
-note over UC, OUT
-  If any step returns Either.Left:
-  1. Error is propagated up
-  2. CLI formats user-friendly message
-  3. App returns appropriate exit code
+== Coroutine Context ==
+
+note over CLI, Service
+    <b>Structured Concurrency:</b>
+    • All async operations in coroutineScope
+    • Cancellation support throughout
+    • Proper resource cleanup
+    • Exception handling with CoroutineExceptionHandler
 end note
 
 @enduml

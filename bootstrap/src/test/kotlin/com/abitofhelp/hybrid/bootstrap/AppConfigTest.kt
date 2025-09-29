@@ -1,9 +1,9 @@
-/*
- * Kotlin Hybrid Architecture Template - Test Suite
- * Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
- * SPDX-License-Identifier: BSD-3-Clause
- * See LICENSE file in the project root.
- */
+////////////////////////////////////////////////////////////////////////////////
+// Kotlin Hybrid Architecture Template - Test Suite
+// Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE file in the project root.
+////////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.bootstrap
 
@@ -13,6 +13,78 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 
+/**
+ * Comprehensive test suite for [AppConfig] data class and its parsing functionality.
+ *
+ * ## What This Tests
+ *
+ * This test suite validates the configuration system that handles command-line arguments
+ * and application settings. It ensures that user inputs are correctly parsed into a
+ * structured configuration object that drives the application's behavior.
+ *
+ * ## Why These Tests Are Important
+ *
+ * 1. **Input Validation**: Verifies that command-line arguments are parsed correctly
+ * 2. **Data Integrity**: Ensures configuration objects maintain consistent state
+ * 3. **Edge Case Handling**: Validates behavior with unusual but valid inputs
+ * 4. **Error Handling**: Confirms appropriate errors for invalid arguments
+ * 5. **Usability**: Tests that the parsing logic supports flexible argument ordering
+ *
+ * ## Test Scenarios Covered
+ *
+ * ### Configuration Creation
+ * - Default configuration with no arguments
+ * - Custom configuration with all parameters specified
+ * - Partial configuration with some parameters
+ *
+ * ### Argument Parsing
+ * - **Name parsing**: Positional arguments, names with spaces, empty names
+ * - **Output path parsing**: File paths, paths with spaces, missing values
+ * - **Verbose flag parsing**: Long form (--verbose), short form (-v), multiple flags
+ * - **Combined arguments**: All options together, flexible ordering
+ *
+ * ### Edge Cases
+ * - Empty argument arrays
+ * - Flag-only arguments
+ * - Malformed argument combinations
+ * - Arguments in unexpected positions
+ *
+ * ### Data Class Features
+ * - toString(), equals(), hashCode() implementations
+ * - copy() method for immutable updates
+ *
+ * ## Example Usage Patterns
+ *
+ * ```kotlin
+ * // Basic configuration
+ * val config = AppConfig(name = "Alice")
+ *
+ * // From command line: ["Bob", "--verbose", "--out", "file.txt"]
+ * val parsed = parseArgs(args)
+ * ```
+ *
+ * ## Testing Best Practices Demonstrated
+ *
+ * 1. **Clear Test Structure**: Using Kotest's DescribeSpec for hierarchical organization
+ * 2. **Descriptive Test Names**: Each test clearly states what it validates
+ * 3. **Comprehensive Coverage**: Testing both happy path and edge cases
+ * 4. **Assertion Clarity**: Using specific matchers for different validation types
+ * 5. **Boundary Testing**: Validating behavior at input limits
+ *
+ * ## Common Parsing Patterns
+ *
+ * ### Flag Detection
+ * Tests verify that the parser correctly identifies flags vs. values:
+ * - `--verbose` sets a boolean flag
+ * - `--out value` requires a parameter
+ * - Flags can appear in any order
+ *
+ * ### Value Extraction
+ * Tests confirm that non-flag arguments become the name parameter:
+ * - First non-flag argument becomes the name
+ * - Subsequent non-flag arguments are ignored
+ * - Empty strings are valid names
+ */
 class AppConfigTest : DescribeSpec({
 
     describe("AppConfig") {

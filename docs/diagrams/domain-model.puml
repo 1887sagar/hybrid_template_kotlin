@@ -1,118 +1,117 @@
 @startuml domain-model
 !theme plain
 title Domain Model - Core Business Concepts
+caption The greeting domain focuses on name validation and personalized greeting generation
 
 skinparam class {
-    BackgroundColor<<Entity>> #FFE5B4
-    BackgroundColor<<ValueObject>> #FFE5CC
+    BackgroundColor<<ValueObject>> #FFE5B4
     BackgroundColor<<DomainService>> #FFDAB9
-    BackgroundColor<<Repository>> #FFD700
-    BackgroundColor<<DomainEvent>> #FFEBCD
+    BackgroundColor<<Error>> #FFB6C1
+    BackgroundColor<<Enum>> #E6E6FA
     BorderColor Black
+    FontSize 12
+}
+
+skinparam note {
+    BackgroundColor #FFFFCC
+    BorderColor #666666
 }
 
 ' Value Objects
-class Email <<ValueObject>> {
-    - value: String
-    + validate(): Boolean
-}
-
-class Money <<ValueObject>> {
-    - amount: BigDecimal
-    - currency: Currency
-    + add(other: Money): Money
-    + subtract(other: Money): Money
-}
-
-class CustomerId <<ValueObject>> {
-    - value: String
-    + generate(): CustomerId
-}
-
-class OrderId <<ValueObject>> {
-    - value: String
-    + generate(): OrderId
-}
-
-' Entities
-class Customer <<Entity>> {
-    - id: CustomerId
+class PersonName <<ValueObject>> {
     - name: String
-    - email: Email
-    - status: CustomerStatus
-    + changeEmail(email: Email): Either<DomainError, EmailChanged>
-    + activate(): Either<DomainError, CustomerActivated>
+    + {static} of(name: String): Either<DomainError, PersonName>
+    + {static} anonymous(): PersonName
+    + toString(): String
+    --
+    Business Rules:
+    • 1-50 characters
+    • Letters and spaces only
+    • Cannot be blank
 }
 
-class Order <<Entity>> {
-    - id: OrderId
-    - customerId: CustomerId
-    - items: List<OrderItem>
-    - status: OrderStatus
-    + addItem(product: Product, quantity: Int): Either<DomainError, ItemAdded>
-    + removeItem(itemId: String): Either<DomainError, ItemRemoved>
-    + submit(): Either<DomainError, OrderSubmitted>
-    + calculateTotal(): Money
-}
-
-class Product <<Entity>> {
-    - id: ProductId
-    - name: String
-    - price: Money
-    - stock: Int
-    + updatePrice(price: Money): Either<DomainError, PriceUpdated>
-    + adjustStock(quantity: Int): Either<DomainError, StockAdjusted>
+' Enums
+enum GreetingFormat <<Enum>> {
+    CASUAL
+    FORMAL
+    FRIENDLY
+    PROFESSIONAL
+    --
+    + getTemplate(): String
 }
 
 ' Domain Services
-class PricingService <<DomainService>> {
-    + calculateDiscount(order: Order, customer: Customer): Money
-    + applyPromotions(order: Order): Order
+interface GreetingService <<DomainService>> {
+    + createGreeting(name: PersonName, format: GreetingFormat): Either<DomainError, String>
 }
 
-class InventoryService <<DomainService>> {
-    + checkAvailability(items: List<OrderItem>): Either<DomainError, Boolean>
-    + reserveStock(items: List<OrderItem>): Either<DomainError, ReservationId>
+class GreetingPolicy <<DomainService>> {
+    + {static} determineFormat(name: PersonName): GreetingFormat
+    + {static} isAnonymous(name: PersonName): Boolean
+    --
+    Business Logic:
+    • Anonymous users get CASUAL format
+    • Named users get FRIENDLY format
 }
 
-' Repository Interfaces
-interface CustomerRepository <<Repository>> {
-    + findById(id: CustomerId): Either<DomainError, Customer?>
-    + save(customer: Customer): Either<DomainError, Customer>
-    + findByEmail(email: Email): Either<DomainError, Customer?>
+' Errors
+abstract class DomainError <<Error>> {
+}
+class ValidationError extends DomainError {
+    message: String
+}
+class BusinessRuleViolation extends DomainError {
+    rule: String
+    message: String
+}
+class NotFound extends DomainError {
+    entityType: String
+    identifier: String
 }
 
-interface OrderRepository <<Repository>> {
-    + findById(id: OrderId): Either<DomainError, Order?>
-    + save(order: Order): Either<DomainError, Order>
-    + findByCustomerId(customerId: CustomerId): Either<DomainError, List<Order>>
-}
-
-' Domain Events
-class OrderSubmitted <<DomainEvent>> {
-    + orderId: OrderId
-    + customerId: CustomerId
-    + total: Money
-    + occurredAt: Instant
-}
-
-class CustomerActivated <<DomainEvent>> {
-    + customerId: CustomerId
-    + occurredAt: Instant
+' Service Implementation (Infrastructure boundary)
+class DefaultGreetingService <<DomainService>> {
+    + createGreeting(name: PersonName, format: GreetingFormat): Either<DomainError, String>
+    --
+    Implementation Details:
+    • Validates input parameters
+    • Applies greeting template
+    • Returns formatted greeting
 }
 
 ' Relationships
-Customer "1" -- "*" Order : places
-Order "1" -- "*" OrderItem : contains
-Order --> Money : total
-Customer --> Email : has
-Customer --> CustomerId : identified by
-Order --> OrderId : identified by
-Order ..> OrderSubmitted : emits
-Customer ..> CustomerActivated : emits
-PricingService ..> Order : calculates for
-PricingService ..> Customer : considers
-CustomerRepository ..> Customer : manages
-OrderRepository ..> Order : manages
+GreetingService --> PersonName : validates
+GreetingService --> GreetingFormat : uses
+GreetingService --> DomainError : returns on failure
+
+GreetingPolicy --> PersonName : analyzes
+GreetingPolicy --> GreetingFormat : determines
+
+DefaultGreetingService ..|> GreetingService : implements
+DefaultGreetingService --> GreetingPolicy : uses
+
+PersonName --> DomainError : validates against
+
+note top of PersonName
+    <b>Value Object Pattern</b>
+    • Immutable
+    • Self-validating
+    • Rich behavior
+    • Equality by value
+end note
+
+note right of GreetingFormat
+    <b>Enum Pattern</b>
+    • Finite set of options
+    • Type-safe constants
+    • Behavior attached
+end note
+
+note bottom of GreetingService
+    <b>Domain Service Pattern</b>
+    • Stateless operations
+    • Pure business logic
+    • No infrastructure concerns
+end note
 
 @enduml

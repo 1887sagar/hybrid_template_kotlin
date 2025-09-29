@@ -1,118 +1,179 @@
 @startuml error-handling-flow
 !theme plain
-title Error Handling Flow - Either Pattern
+title Error Handling Flow - Railway-Oriented Programming with Either
+caption Shows how errors flow through layers with functional error handling patterns
 
 skinparam class {
     BackgroundColor<<Domain>> #FFE5B4
     BackgroundColor<<Application>> #B4E5FF
     BackgroundColor<<Infrastructure>> #E5B4FF
     BackgroundColor<<Presentation>> #B4FFE5
+    BorderColor Black
+    FontSize 11
 }
 
-' Error hierarchy
-abstract class DomainError <<Domain>> {
-    {abstract}
+skinparam note {
+    BackgroundColor #FFFFCC
+    BorderColor #666666
 }
 
-class ValidationError <<Domain>> {
-    + field: String
-    + message: String
-}
-
-class BusinessRuleViolation <<Domain>> {
-    + rule: String
-    + reason: String
-}
-
-class NotFound <<Domain>> {
-    + entity: String
-    + id: String
-}
-
-abstract class ApplicationError <<Application>> {
-    {abstract}
-}
-
-class UseCaseError <<Application>> {
-    + useCase: String
-    + cause: DomainError
-}
-
-class RepositoryError <<Application>> {
-    + operation: String
-    + message: String
-}
-
-class ExternalServiceError <<Application>> {
-    + service: String
-    + message: String
-}
-
-class HttpError <<Presentation>> {
-    + status: Int
-    + message: String
-    + details: Map<String, Any>
-}
-
-' Error transformations
-note top of DomainError
-    **Domain Layer**
-    Pure business errors
-    No technical details
-end note
-
-note top of ApplicationError
-    **Application Layer**
-    Maps domain errors
-    Adds context
-end note
-
-note top of HttpError
-    **Presentation Layer**
-    HTTP-specific errors
-    User-friendly messages
-end note
-
-' Either flow example
-package "Error Flow Example" {
-    class "Repository" <<Infrastructure>> {
-        findById(): Either<DomainError, Entity>
+' Domain Error Hierarchy
+package "Domain Errors" <<Domain>> {
+    abstract class DomainError {
+        + message: String
+        + userMessage: String
     }
     
-    class "UseCase" <<Application>> {
-        execute(): Either<ApplicationError, Result>
+    class ValidationError {
+        + field: String
+        + message: String
+        + userMessage: String
     }
     
-    class "Controller" <<Presentation>> {
-        handleRequest(): ResponseEntity<T>
+    class BusinessRuleViolation {
+        + rule: String
+        + message: String
+        + userMessage: String
+    }
+    
+    class NotFound {
+        + entityType: String
+        + identifier: String
+        + message: String
+        + userMessage: String
     }
 }
 
-' Inheritance
+' Application Error Hierarchy  
+package "Application Errors" <<Application>> {
+    abstract class ApplicationError {
+        + message: String
+        + timestamp: Instant
+        + context: Map<String, Any>
+    }
+    
+    class DomainErrorWrapper {
+        + domainError: DomainError
+        + message: String
+        + context: Map<String, Any>
+    }
+    
+    class OutputError {
+        + operation: String
+        + message: String
+        + cause: Throwable?
+    }
+    
+    class UnexpectedError {
+        + message: String
+        + cause: Throwable
+        + stackTrace: String
+    }
+}
+
+' Error Flow Through Layers
+package "Error Transformation Flow" {
+    
+    class PersonNameValidation <<Domain>> {
+        + of(name: String): Either<ValidationError, PersonName>
+    }
+    
+    class CreateGreetingUseCase <<Application>> {
+        + execute(command): Either<ApplicationError, GreetingResult>
+    }
+    
+    class ConsoleOutputAdapter <<Infrastructure>> {
+        + send(message): Either<OutputError, Unit>
+    }
+    
+    class PureAsyncCli <<Presentation>> {
+        + runAsync(): Int
+        + handleError(error): String
+    }
+}
+
+' Inheritance relationships
 DomainError <|-- ValidationError
-DomainError <|-- BusinessRuleViolation
+DomainError <|-- BusinessRuleViolation  
 DomainError <|-- NotFound
 
-ApplicationError <|-- UseCaseError
-ApplicationError <|-- RepositoryError
-ApplicationError <|-- ExternalServiceError
+ApplicationError <|-- DomainErrorWrapper
+ApplicationError <|-- OutputError
+ApplicationError <|-- UnexpectedError
 
-' Transformation flow
-DomainError ..> ApplicationError : "maps to"
-ApplicationError ..> HttpError : "converts to"
+' Error transformation flow
+PersonNameValidation --> CreateGreetingUseCase : Either<ValidationError, PersonName>
+CreateGreetingUseCase --> ConsoleOutputAdapter : Either<ApplicationError, Unit>
+ConsoleOutputAdapter --> CreateGreetingUseCase : Either<OutputError, Unit>
+CreateGreetingUseCase --> PureAsyncCli : Either<ApplicationError, GreetingResult>
 
-' Flow annotations
-"Repository" --> "UseCase" : Either<DomainError, Entity>
-"UseCase" --> "Controller" : Either<ApplicationError, Result>
-"Controller" --> Client : HTTP Response
+' Error mapping
+ValidationError ..> DomainErrorWrapper : wraps
+BusinessRuleViolation ..> DomainErrorWrapper : wraps
+NotFound ..> DomainErrorWrapper : wraps
 
-note bottom
-    **Error Handling Principles:**
-    • Errors are values, not exceptions
-    • Use Either<Error, Success> pattern
-    • Transform errors at layer boundaries
-    • Never throw exceptions across layers
-    • Provide meaningful error context
+note as ErrorPropagation
+    <b>Error Propagation Pattern:</b>
+    
+    1. <b>Domain errors</b> contain business logic failures
+    2. <b>Application errors</b> wrap domain errors with context
+    3. <b>Infrastructure errors</b> handle technical failures
+    4. <b>Presentation errors</b> format for user display
+    
+    <b>Benefits:</b>
+    • Type-safe error handling
+    • No exception throwing
+    • Composable error operations
+    • Clear error context
+end note
+
+note as EitherPattern
+    <b>Either<L, R> Usage:</b>
+    
+    ```kotlin
+    // Chain operations safely
+    PersonName.of("Alice")
+        .flatMap { name ->
+            greetingService.createGreeting(name, format)
+        }
+        .flatMap { greeting ->
+            outputPort.send(greeting)
+        }
+        .fold(
+            { error -> handleError(error) },
+            { result -> handleSuccess(result) }
+        )
+    ```
+    
+    <b>Key Operations:</b>
+    • <b>map</b>: Transform success value
+    • <b>flatMap</b>: Chain Either-returning operations
+    • <b>fold</b>: Handle both success and error cases
+    • <b>getOrElse</b>: Provide default on error
+end note
+
+note as ErrorContext
+    <b>Error Context Enhancement:</b>
+    
+    Domain Layer:
+    • Business rule violations
+    • Validation failures
+    • Entity not found
+    
+    Application Layer:
+    • Add operation context
+    • Include timing information
+    • Wrap domain errors
+    
+    Infrastructure Layer:
+    • I/O operation failures
+    • External service errors
+    • Technical exceptions
+    
+    Presentation Layer:
+    • User-friendly messages
+    • HTTP status codes
+    • Internationalization
 end note
 
 @enduml

@@ -1,9 +1,9 @@
-// //////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-// //////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.bootstrap
 
@@ -37,36 +37,68 @@ private const val SHUTDOWN_LATCH_COUNT = 1
  *
  * ## What is an Object?
  * In Kotlin, `object` creates a singleton - exactly one instance exists.
- * Perfect for application entry points and global state management.
+ * Perfect for application entry points and global state management:
+ * ```kotlin
+ * // Only one instance of AsyncApp exists in the entire JVM
+ * val app1 = AsyncApp
+ * val app2 = AsyncApp
+ * println(app1 === app2) // true - same instance
+ * ```
+ *
+ * ## Why Use AsyncApp?
+ * Modern applications benefit from async/await patterns because:
+ * - Better resource utilization (threads aren't blocked waiting)
+ * - Improved scalability (handle more concurrent operations)
+ * - Cleaner error handling with structured concurrency
+ * - Proper lifecycle management for long-running operations
  *
  * ## Signal Handling
  * This app handles Unix signals for graceful shutdown:
- * - **SIGTERM**: Sent by system during shutdown (kill command)
- * - **SIGINT**: Sent when user presses Ctrl+C
- * - **SIGHUP**: Terminal disconnected (Unix only)
+ * - **SIGTERM (15)**: Sent by system during shutdown (`kill <pid>`)
+ * - **SIGINT (2)**: Sent when user presses Ctrl+C (`^C`)
+ * - **SIGHUP (1)**: Terminal disconnected (Unix only)
+ * - **SIGKILL (9)**: Cannot be caught! Forceful termination
  *
  * ## Graceful Shutdown Process
- * 1. Signal received
+ * 1. Signal received → Signal handler triggered
  * 2. Initiates shutdown with 5-second grace period
- * 3. Allows running operations to complete
+ * 3. Allows running operations to complete naturally
  * 4. Forces shutdown if grace period expires
- * 5. Cleans up resources
+ * 5. Cleans up resources and exits with appropriate code
  *
- * ## Exit Codes
- * Following Unix conventions:
- * - 0: Success
- * - 1: General error
- * - 2: Uncaught exception
- * - 3-4: Invalid state/arguments
- * - 126: Permission denied
- * - 130: Interrupted (Ctrl+C)
- * - 134: Abort (stack overflow)
- * - 137: Killed (out of memory)
+ * ## Exit Codes Following Unix Conventions
+ * ```
+ * 0   : Success (everything worked)
+ * 1   : General error (something went wrong)
+ * 2   : Uncaught exception (programmer error)
+ * 3-4 : Invalid state/arguments (configuration issue)
+ * 126 : Permission denied (security/filesystem issue)
+ * 130 : Interrupted (Ctrl+C or SIGINT)
+ * 134 : Abort (stack overflow, assert failed)
+ * 137 : Killed (out of memory, SIGKILL)
+ * ```
  *
  * ## Coroutine Architecture
  * - **SupervisorJob**: Isolates failures (one coroutine failing doesn't kill others)
- * - **CoroutineExceptionHandler**: Catches unhandled exceptions
+ * - **CoroutineExceptionHandler**: Catches unhandled exceptions as last resort
  * - **Structured Concurrency**: Ensures all coroutines are properly cleaned up
+ * - **Dispatchers.Default**: Uses shared thread pool optimized for CPU-bound work
+ *
+ * ## Example Usage
+ * ```kotlin
+ * // Command line execution
+ * suspend fun main(args: Array<String>) {
+ *     val exitCode = AsyncApp.runAsync(args)
+ *     exitProcess(exitCode)
+ * }
+ *
+ * // Or in tests
+ * @Test
+ * fun testAsyncApp() = runTest {
+ *     val result = AsyncApp.runAsync(arrayOf("--verbose", "TestUser"))
+ *     assertEquals(0, result)
+ * }
+ * ```
  */
 object AsyncApp {
 
@@ -484,26 +516,73 @@ object AsyncApp {
 /**
  * Async main function that properly handles coroutines and signals.
  *
- * ## Suspend Main
- * Kotlin allows main to be a suspend function, which means:
- * - No need for runBlocking in main
+ * ## What is a Suspend Main Function?
+ * Kotlin allows main to be a suspend function, enabling modern async patterns:
+ * ```kotlin
+ * // Traditional blocking main
+ * fun main(args: Array<String>) {
+ *     runBlocking { // Required wrapper
+ *         someAsyncWork()
+ *     }
+ * }
+ *
+ * // Modern suspend main
+ * suspend fun main(args: Array<String>) {
+ *     someAsyncWork() // Direct async calls
+ * }
+ * ```
+ *
+ * ## Why Suspend Main?
+ * Benefits of suspend main over traditional main:
+ * - No need for runBlocking wrapper in main
  * - Proper coroutine context from the start
  * - Better integration with coroutine debuggers
+ * - Cleaner stack traces in async code
+ * - Natural async/await patterns throughout
  *
  * ## Exit Process
  * `exitProcess(code)` is the proper way to exit with a code:
- * - Ensures all shutdown hooks run
- * - Returns exit code to the OS
- * - Works consistently across platforms
+ * - Ensures all shutdown hooks run properly
+ * - Returns meaningful exit code to the OS
+ * - Works consistently across platforms (Unix, Windows, etc.)
+ * - Forces immediate termination (vs return from main)
  *
- * ## Usage
+ * ## Process Exit Codes in Practice
+ * Operating systems and scripts use exit codes to determine success:
  * ```bash
- * # Run the program
- * java -jar app.jar Alice
+ * # Shell scripting example
+ * if myapp "Alice"; then
+ *     echo "App succeeded"
+ * else
+ *     echo "App failed with code $?"
+ * fi
+ * ```
  *
- * # Check exit code
- * echo $?  # Unix/Linux/Mac
- * echo %ERRORLEVEL%  # Windows
+ * ## Usage Examples
+ * ```bash
+ * # Basic usage
+ * java -jar hybrid-app.jar Alice
+ *
+ * # With options
+ * java -jar hybrid-app.jar --verbose --out=results.txt Bob
+ *
+ * # Check exit code (Unix/Linux/Mac)
+ * echo $?
+ *
+ * # Check exit code (Windows)
+ * echo %ERRORLEVEL%
+ *
+ * # Use in scripts
+ * java -jar hybrid-app.jar "Charlie" && echo "Success!" || echo "Failed!"
+ * ```
+ *
+ * ## Integration with CI/CD
+ * Exit codes are crucial for automated builds:
+ * ```yaml
+ * # GitHub Actions example
+ * - name: Run Application
+ *   run: java -jar app.jar TestUser
+ *   # Action fails if exit code != 0
  * ```
  *
  * @param args Command-line arguments passed to the program

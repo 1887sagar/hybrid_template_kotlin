@@ -1,86 +1,192 @@
 @startuml use-case-flow
 !theme plain
-title Use Case Flow - Create Order Example
+title Use Case Flow - Create Greeting Example
+caption Shows how application orchestrates domain logic through ports and adapters
 
-participant "REST Controller" as Controller #B4FFE5
-participant "CreateOrderUseCase" as UseCase #B4E5FF
-participant "CustomerRepository" as CustRepo #FFE5B4
-participant "ProductRepository" as ProdRepo #FFE5B4
-participant "OrderRepository" as OrderRepo #FFE5B4
-participant "PricingService" as Pricing #FFE5B4
-participant "PaymentServicePort" as Payment #B4E5FF
-participant "EventPublisherPort" as EventPub #B4E5FF
-participant "StripeAdapter" as Stripe #E5B4FF
-participant "KafkaAdapter" as Kafka #E5B4FF
+skinparam participant {
+    BackgroundColor<<Presentation>> #B4FFE5
+    BackgroundColor<<Application>> #B4E5FF
+    BackgroundColor<<Domain>> #FFE5B4
+    BackgroundColor<<Infrastructure>> #E5B4FF
+    BorderColor Black
+}
 
-' Request flow
-Controller -> Controller: Validate request
-Controller -> UseCase: invoke(CreateOrderCommand)
+skinparam note {
+    BackgroundColor #FFFFCC
+    BorderColor #666666
+}
+
+participant "PureAsyncCli" as CLI <<Presentation>>
+participant "CreateGreetingUseCase" as UseCase <<Application>>
+participant "PersonName" as PersonName <<Domain>>
+participant "GreetingService" as ServiceInterface <<Domain>>
+participant "DefaultGreetingService" as ServiceImpl <<Infrastructure>>
+participant "GreetingPolicy" as Policy <<Domain>>
+participant "OutputPort" as OutputPort <<Application>>
+participant "ConsoleOutputAdapter" as OutputAdapter <<Infrastructure>>
+participant "ErrorOutputPort" as ErrorPort <<Application>>
+participant "ConsoleErrorOutputAdapter" as ErrorAdapter <<Infrastructure>>
+
+== Input Processing and Validation ==
+
+CLI -> CLI: Parse user input
+note right of CLI: CreateGreetingCommand\n(name="Alice")
+
+CLI -> UseCase: execute(command)
 activate UseCase
 
-UseCase -> CustRepo: findById(customerId)
-CustRepo --> UseCase: Either<Error, Customer>
+UseCase -> UseCase: Extract command data
+note right of UseCase: Extract name: "Alice"
 
-UseCase -> UseCase: Check customer exists
+UseCase -> PersonName: of("Alice")
+activate PersonName
 
-loop for each item
-    UseCase -> ProdRepo: findById(productId)
-    ProdRepo --> UseCase: Either<Error, Product>
-    UseCase -> UseCase: Check product availability
+PersonName -> PersonName: Validate business rules
+note right of PersonName
+    Rules:
+    • Not blank/empty
+    • 1-50 characters
+    • Letters, spaces, hyphens, apostrophes only
+    • Trim whitespace
+end note
+
+alt Valid Input
+    PersonName --> UseCase: Either.Right(PersonName("Alice"))
+    deactivate PersonName
+    
+    == Domain Logic Orchestration ==
+    
+    UseCase -> ServiceInterface: createGreeting(personName, format)
+    activate ServiceInterface
+    
+    ServiceInterface -> ServiceImpl: createGreeting(personName, format)
+    activate ServiceImpl
+    
+    ServiceImpl -> Policy: determineFormat(personName)
+    activate Policy
+    
+    Policy -> Policy: Apply business rules
+    note right of Policy
+        Business Logic:
+        • Anonymous → CASUAL
+        • Named users → FRIENDLY
+        • Special names → FORMAL
+    end note
+    
+    Policy --> ServiceImpl: GreetingFormat.FRIENDLY
+    deactivate Policy
+    
+    ServiceImpl -> ServiceImpl: Generate greeting text
+    note right of ServiceImpl
+        Template: "Hello World from {name}!"
+        Result: "Hello World from Alice!"
+    end note
+    
+    ServiceImpl -> ServiceImpl: Validate output
+    note right of ServiceImpl: Check greeting length limits
+    
+    ServiceImpl --> ServiceInterface: Either.Right("Hello World from Alice!")
+    deactivate ServiceImpl
+    
+    ServiceInterface --> UseCase: Either.Right("Hello World from Alice!")
+    deactivate ServiceInterface
+    
+    == Output Handling ==
+    
+    UseCase -> OutputPort: send("Hello World from Alice!")
+    activate OutputPort
+    
+    OutputPort -> OutputAdapter: send("Hello World from Alice!")
+    activate OutputAdapter
+    
+    OutputAdapter -> OutputAdapter: Validate message
+    OutputAdapter -> OutputAdapter: Write to System.out
+    
+    OutputAdapter --> OutputPort: Either.Right(Unit)
+    deactivate OutputAdapter
+    
+    OutputPort --> UseCase: Either.Right(Unit)
+    deactivate OutputPort
+    
+    UseCase -> UseCase: Create result object
+    note right of UseCase
+        GreetingResult(
+            greeting="Hello World from Alice!",
+            personName=PersonName("Alice"),
+            timestamp=Instant.now()
+        )
+    end note
+    
+    UseCase --> CLI: Either.Right(GreetingResult)
+    deactivate UseCase
+    
+    CLI -> CLI: Handle success
+    note right of CLI: Optional verbose logging
+
+else Invalid Input
+    PersonName --> UseCase: Either.Left(DomainError.ValidationError)
+    deactivate PersonName
+    
+    == Error Handling ==
+    
+    UseCase -> UseCase: Transform domain error
+    note right of UseCase: ApplicationError.DomainErrorWrapper
+    
+    UseCase -> ErrorPort: sendError("Validation failed: Invalid name format")
+    activate ErrorPort
+    
+    ErrorPort -> ErrorAdapter: sendError(message)
+    activate ErrorAdapter
+    
+    ErrorAdapter -> ErrorAdapter: Write to System.err
+    
+    ErrorAdapter --> ErrorPort: Either.Right(Unit)
+    deactivate ErrorAdapter
+    
+    ErrorPort --> UseCase: Either.Right(Unit)
+    deactivate ErrorPort
+    
+    UseCase --> CLI: Either.Left(ApplicationError)
+    deactivate UseCase
+    
+    CLI -> CLI: Format error message
+    note right of CLI: Extract user-friendly message
+    
+    CLI -> CLI: Return error exit code
 end
 
-UseCase -> UseCase: Create Order entity
-UseCase -> Pricing: calculatePrice(order, customer)
-Pricing --> UseCase: Either<Error, PricedOrder>
+== Architecture Boundaries ==
 
-UseCase -> OrderRepo: save(order)
-OrderRepo --> UseCase: Either<Error, Order>
-
-UseCase -> Payment: processPayment(amount, card)
-Payment -> Stripe: charge(paymentDetails)
-Stripe --> Payment: PaymentResult
-Payment --> UseCase: Either<Error, PaymentResult>
-
-UseCase -> UseCase: Create OrderCreatedEvent
-
-UseCase -> EventPub: publish(event)
-EventPub -> Kafka: send(topic, event)
-Kafka --> EventPub: Success
-EventPub --> UseCase: Either<Error, Unit>
-
-UseCase -> UseCase: Map to OrderDto
-UseCase --> Controller: Either<Error, OrderDto>
-deactivate UseCase
-
-Controller -> Controller: Map to OrderResponse
-Controller --> Client: HTTP 200 + OrderResponse
-
-note over Controller, UseCase
-    **Presentation Layer**
-    • Input validation
-    • HTTP handling
-    • Response mapping
+note over CLI
+    <b>Presentation Layer</b>
+    • Handles user interface
+    • Formats input/output
+    • Manages CLI lifecycle
+    • Error message formatting
 end note
 
-note over UseCase, EventPub
-    **Application Layer**
-    • Use case orchestration
-    • Domain coordination
-    • Port interfaces
+note over UseCase, OutputPort
+    <b>Application Layer</b>
+    • Orchestrates business logic
+    • Defines port interfaces
+    • Error transformation
+    • Use case coordination
 end note
 
-note over CustRepo, Pricing
-    **Domain Layer**
-    • Business entities
-    • Domain services
-    • Repository interfaces
+note over PersonName, Policy
+    <b>Domain Layer</b>
+    • Pure business logic
+    • Validation rules
+    • Business policies
+    • No external dependencies
 end note
 
-note over Stripe, Kafka
-    **Infrastructure Layer**
-    • External integrations
+note over ServiceImpl, ErrorAdapter
+    <b>Infrastructure Layer</b>
     • Technical implementations
-    • Adapter patterns
+    • External system integration
+    • Adapter implementations
+    • Framework-specific code
 end note
 
 @enduml

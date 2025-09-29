@@ -1,9 +1,9 @@
-/*
- * Kotlin Hybrid Architecture Template - Test Suite
- * Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
- * SPDX-License-Identifier: BSD-3-Clause
- * See LICENSE file in the project root.
- */
+////////////////////////////////////////////////////////////////////////////////
+// Kotlin Hybrid Architecture Template - Test Suite
+// Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
+// SPDX-License-Identifier: BSD-3-Clause
+// See LICENSE file in the project root.
+////////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.architecture
 
@@ -13,7 +13,105 @@ import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes
 import org.junit.jupiter.api.Test
 
 /**
- * Validates package structure conventions for our architecture.
+ * Validates that classes are organized in the correct package structure according to our architectural layers.
+ *
+ * ## Why Package Structure Matters
+ *
+ * A well-organized package structure is the **foundation of maintainable architecture**:
+ * 1. **Discoverability**: Developers can quickly find related classes
+ * 2. **Enforces Boundaries**: Package structure reflects architectural layers
+ * 3. **Enables Tooling**: IDEs and build tools can leverage structure
+ * 4. **Reduces Cognitive Load**: Predictable organization patterns
+ * 5. **Supports Team Scalability**: Multiple developers can work without conflicts
+ *
+ * ## Our Package Organization Strategy
+ *
+ * We use **layer-first organization** with **functional sub-packages**:
+ *
+ * ```
+ * com.abitofhelp.hybrid/
+ * ├── domain/                    # Core business logic (no dependencies)
+ * │   ├── value/                 # Value objects (PersonName, Money)
+ * │   ├── entity/                # Domain entities (Order, Customer)
+ * │   ├── service/               # Domain services (GreetingService)
+ * │   ├── repository/            # Repository interfaces
+ * │   ├── policy/                # Business policies
+ * │   └── error/                 # Domain errors
+ * ├── application/               # Application logic (orchestration)
+ * │   ├── usecase/               # Use case implementations
+ * │   ├── port/
+ * │   │   ├── input/             # Input ports (driving)
+ * │   │   └── output/            # Output ports (driven)
+ * │   ├── dto/                   # Data transfer objects
+ * │   └── error/                 # Application errors
+ * ├── infrastructure/            # Technical implementation
+ * │   ├── adapter/
+ * │   │   └── output/            # Output port implementations
+ * │   └── service/               # Infrastructure service implementations
+ * ├── presentation/              # User interface layer
+ * │   └── cli/                   # Command-line interface
+ * └── bootstrap/                 # Application startup and wiring
+ * ```
+ *
+ * ## Layer-First vs Feature-First
+ *
+ * We chose **layer-first** organization because:
+ * 1. **Architectural Clarity**: Layer boundaries are immediately visible
+ * 2. **Dependency Management**: Easier to enforce layer dependency rules
+ * 3. **Shared Components**: Cross-feature utilities have natural homes
+ * 4. **Team Organization**: Teams can own entire layers
+ * 5. **Tool Support**: Build tools can work with layer-based modules
+ *
+ * ## Package Placement Rules
+ *
+ * ### Domain Layer (`com.abitofhelp.hybrid.domain`)
+ * - **Value Objects**: `domain.value` or `domain.model` (relaxed rule)
+ * - **Services**: `domain.service`
+ * - **Repositories**: `domain.repository` (interfaces only!)
+ * - **Policies**: `domain.policy`
+ * - **Errors**: `domain.error`
+ *
+ * ### Application Layer (`com.abitofhelp.hybrid.application`)
+ * - **Use Cases**: `application.usecase`
+ * - **Input Ports**: `application.port.input`
+ * - **Output Ports**: `application.port.output`
+ * - **DTOs**: `application.dto`
+ * - **Errors**: `application.error`
+ *
+ * ### Infrastructure Layer (`com.abitofhelp.hybrid.infrastructure`)
+ * - **Adapters**: `infrastructure.adapter.output`
+ * - **Services**: `infrastructure.service`
+ *
+ * ### Bootstrap Layer (`com.abitofhelp.hybrid.bootstrap`)
+ * - **Composition Root**: Directly in bootstrap package
+ * - **Configuration**: Bootstrap package
+ * - **Entry Points**: Bootstrap package
+ *
+ * ## Common Package Anti-Patterns
+ *
+ * ```kotlin
+ * // ❌ Bad - Wrong package placement
+ * package com.example.domain.service
+ * class DatabaseOrderService  // Infrastructure! Should be in infrastructure.service
+ *
+ * package com.example.presentation.usecase
+ * class CreateOrderUseCase  // Application logic! Should be in application.usecase
+ *
+ * // ✅ Good - Correct placement
+ * package com.example.domain.service
+ * interface OrderService  // Domain interface
+ *
+ * package com.example.infrastructure.service
+ * class DatabaseOrderService : OrderService  // Infrastructure implementation
+ * ```
+ *
+ * ## Testing Benefits
+ *
+ * These package structure tests provide:
+ * 1. **Early Detection**: Catch misplaced classes during development
+ * 2. **Refactoring Safety**: Ensure moves don't break package rules
+ * 3. **Team Alignment**: Automated enforcement of organization decisions
+ * 4. **Documentation**: Tests serve as living documentation of structure
  */
 class PackageStructureTest {
 
@@ -27,6 +125,42 @@ class PackageStructureTest {
         }
         .importPackages(ArchitectureConstants.BASE_PACKAGE)
 
+    /**
+     * Validates that value objects are placed in appropriate domain sub-packages.
+     *
+     * ## Value Object Placement Rules
+     * 
+     * Value objects can be placed in either:
+     * - `domain.value` - Dedicated value object package (recommended)
+     * - `domain.model` - General domain model package (legacy support)
+     * 
+     * ## Why Package Placement Matters
+     * 
+     * Consistent placement helps with:
+     * 1. **Discoverability**: Developers know where to find value objects
+     * 2. **Import Organization**: IDE can organize imports consistently
+     * 3. **Build Tool Integration**: Tools can process value objects specially
+     * 4. **Code Generation**: Tooling can generate based on package patterns
+     * 
+     * ## Examples
+     * 
+     * ```kotlin
+     * // ✅ Good - In value object package
+     * package com.example.domain.value
+     * @JvmInline
+     * value class PersonName(val value: String)
+     * 
+     * // ✅ Also Good - In model package (legacy)
+     * package com.example.domain.model
+     * @JvmInline
+     * value class Email(val value: String)
+     * 
+     * // ❌ Bad - In wrong layer
+     * package com.example.application.dto
+     * @JvmInline
+     * value class PersonName(val value: String)  // Domain concept!
+     * ```
+     */
     @Test
     fun `domain value objects should be in correct package`() {
         // For now, we'll allow value classes in domain.model package
@@ -150,6 +284,58 @@ class PackageStructureTest {
         rule.check(classes)
     }
 
+    /**
+     * Ensures bootstrap module contains only appropriate startup and configuration classes.
+     *
+     * ## Bootstrap Module Purity
+     * 
+     * The bootstrap module should be the **thinnest possible layer** containing only:
+     * - **CompositionRoot**: Dependency wiring
+     * - **App**: Application startup logic
+     * - **AppConfig**: Configuration classes
+     * - **EntryPoint**: Main function containers
+     * - **Config classes**: Settings and environment configuration
+     * 
+     * ## Why This Restriction Matters
+     * 
+     * 1. **Single Responsibility**: Bootstrap has one job - start the application
+     * 2. **Testability**: Business logic should be testable without bootstrap
+     * 3. **Clarity**: Clear separation between startup and business logic
+     * 4. **Maintainability**: Changes to business logic don't affect startup
+     * 
+     * ## Allowed Class Patterns
+     * 
+     * Classes in bootstrap must match these naming patterns:
+     * ```kotlin
+     * // ✅ Good - Bootstrap classes
+     * class CompositionRoot { /* dependency wiring */ }
+     * class AppConfig { /* application configuration */ }
+     * class App { /* application startup */ }
+     * class EntryPoint { /* main function */ }
+     * object DatabaseConfig { /* configuration */ }
+     * 
+     * // Special handling for argument parsing
+     * class SecureArgParser { /* contains 'parseArgs' in name */ }
+     * ```
+     * 
+     * ## Prohibited in Bootstrap
+     * 
+     * ```kotlin
+     * // ❌ Bad - Business logic
+     * class OrderValidator { /* belongs in domain! */ }
+     * class PaymentProcessor { /* belongs in application! */ }
+     * class DatabaseRepository { /* belongs in infrastructure! */ }
+     * class CliCommand { /* belongs in presentation! */ }
+     * ```
+     * 
+     * ## How to Fix Violations
+     * 
+     * If business logic accidentally ends up in bootstrap:
+     * 1. **Identify the correct layer** for the logic
+     * 2. **Move the class** to appropriate package
+     * 3. **Update the composition root** to wire the moved class
+     * 4. **Update imports** in dependent classes
+     */
     @Test
     fun `bootstrap module should only contain composition root`() {
         val rule = classes()
