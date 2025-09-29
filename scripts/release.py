@@ -247,7 +247,7 @@ class ReleaseManager:
         
         commands = [
             ["./gradlew", "clean", "build"],
-            ["./gradlew", "jar", "sourcesJar", "javadocJar"],
+            ["./gradlew", "jar"],
             ["make", "diagrams"]  # Generate PlantUML diagrams
         ]
         
