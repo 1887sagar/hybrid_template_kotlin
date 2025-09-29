@@ -97,28 +97,28 @@ class SecureArgParserTest : DescribeSpec({
             }
 
             it("should parse output path") {
-                val args = arrayOf("Bob", "--out", "/tmp/test.txt")
+                val args = arrayOf("Bob", "--out", "./test-output/test.txt")
                 val config = SecureArgParser.parseSecure(args)
 
                 config.name shouldBe "Bob"
-                config.outputPath shouldBe "/tmp/test.txt"
+                config.outputPath shouldContain "test-output/test.txt"
             }
 
             it("should parse --out=path format") {
-                val args = arrayOf("--out=/tmp/output.txt", "Charlie")
+                val args = arrayOf("--out=./output/output.txt", "Charlie")
                 val config = SecureArgParser.parseSecure(args)
 
                 config.name shouldBe "Charlie"
-                config.outputPath shouldBe "/tmp/output.txt"
+                config.outputPath shouldContain "output/output.txt"
             }
 
             it("should handle all options") {
-                val args = arrayOf("-v", "--out", "/tmp/file.txt", "David")
+                val args = arrayOf("-v", "--out", "./output/file.txt", "David")
                 val config = SecureArgParser.parseSecure(args)
 
                 config.name shouldBe "David"
                 config.verbose shouldBe true
-                config.outputPath shouldBe "/tmp/file.txt"
+                config.outputPath shouldContain "output/file.txt"
             }
 
             it("should handle empty name") {

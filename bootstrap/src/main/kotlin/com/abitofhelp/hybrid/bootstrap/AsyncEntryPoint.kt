@@ -105,7 +105,7 @@ object AsyncApp {
      *
      * This scope lives for the entire application lifetime.
      */
-    private val appScope = CoroutineScope(
+    private var appScope = CoroutineScope(
         Dispatchers.Default +
             SupervisorJob() +
             CoroutineExceptionHandler { _, exception ->
@@ -141,6 +141,17 @@ object AsyncApp {
      * @return Exit code for the OS
      */
     suspend fun runAsync(args: Array<String>): Int = coroutineScope {
+        // Re-initialize per-run state
+        isShuttingDown.set(false)
+        exitCode.set(EXIT_CODE_SUCCESS)
+        appScope = CoroutineScope(
+            Dispatchers.Default +
+                SupervisorJob() +
+                CoroutineExceptionHandler { _, exception ->
+                    handleUncaughtException(exception)
+                },
+        )
+
         try {
             // Step 1: Install signal handlers for graceful shutdown
             installSignalHandlers()

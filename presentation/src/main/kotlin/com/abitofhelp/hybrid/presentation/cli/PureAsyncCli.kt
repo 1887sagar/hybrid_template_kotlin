@@ -13,6 +13,14 @@ import com.abitofhelp.hybrid.application.error.ApplicationError
 import com.abitofhelp.hybrid.application.port.input.CreateGreetingInputPort
 import kotlinx.coroutines.*
 
+// Exit codes for different error types
+private const val EXIT_CODE_SUCCESS = 0
+private const val EXIT_CODE_OUTPUT_ERROR = 1
+private const val EXIT_CODE_DOMAIN_ERROR = 2
+private const val EXIT_CODE_USECASE_ERROR = 3
+private const val EXIT_CODE_VALIDATION_ERROR = 4
+private const val EXIT_CODE_BATCH_VALIDATION_ERROR = 5
+
 /**
  * Pure async CLI implementation without any blocking code.
  * This is the modern, preferred way to implement CLI programs in Kotlin.
@@ -20,11 +28,6 @@ import kotlinx.coroutines.*
 class PureAsyncCli(
     private val config: PresentationConfig,
     private val createGreeting: CreateGreetingInputPort,
-    private val scope: CoroutineScope = CoroutineScope(
-        Dispatchers.Default +
-            SupervisorJob() +
-            CoroutineName("PureAsyncCli"),
-    ),
 ) {
     /**
      * Executes the CLI program asynchronously.
@@ -54,26 +57,26 @@ class PureAsyncCli(
             }
         }.fold(
             { error -> handleError(error) },
-            { 0 }, // Success
+            { EXIT_CODE_SUCCESS }, // Success
         )
     }
 
     private fun handleError(error: ApplicationError): Int {
         val (message, exitCode) = when (error) {
             is ApplicationError.OutputError ->
-                "Failed to deliver greeting: ${error.message}" to 1
+                "Failed to deliver greeting: ${error.message}" to EXIT_CODE_OUTPUT_ERROR
 
             is ApplicationError.DomainErrorWrapper ->
-                "Invalid input: ${error.userMessage}" to 2
+                "Invalid input: ${error.userMessage}" to EXIT_CODE_DOMAIN_ERROR
 
             is ApplicationError.UseCaseError ->
-                "Processing error in ${error.useCase}: ${error.cause}" to 3
+                "Processing error in ${error.useCase}: ${error.cause}" to EXIT_CODE_USECASE_ERROR
 
             is ApplicationError.ValidationError ->
-                "Validation error in ${error.field}: ${error.message}" to 4
+                "Validation error in ${error.field}: ${error.message}" to EXIT_CODE_VALIDATION_ERROR
 
             is ApplicationError.BatchValidationError ->
-                "Batch validation failed for '${error.item}': ${error.error}" to 5
+                "Batch validation failed for '${error.item}': ${error.error}" to EXIT_CODE_BATCH_VALIDATION_ERROR
         }
 
         System.err.println("Error: $message")

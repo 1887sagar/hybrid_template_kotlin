@@ -38,38 +38,44 @@ object CoroutineErrorHandler {
     private fun convertExceptionToApplicationError(exception: Throwable, context: String): ApplicationError =
         when (exception) {
             is CancellationException -> throw exception // Let cancellation propagate
-            is IllegalArgumentException -> createValidationError(context, "Invalid argument: ${exception.message}")
-            is IllegalStateException -> createValidationError(context, "Invalid state: ${exception.message}")
-            is SecurityException -> createSecurityError(exception)
-            is OutOfMemoryError -> createCriticalResourceError(context, "Out of memory")
-            is StackOverflowError -> createCriticalResourceError(context, "Stack overflow")
-            is java.io.IOException -> createIOError(exception)
-            is TimeoutCancellationException -> createTimeoutError(context)
-            else -> createUnexpectedError(context, exception)
+            is IllegalArgumentException ->
+                ErrorFactory.validationError(context, "Invalid argument: ${exception.message}")
+            is IllegalStateException -> ErrorFactory.validationError(context, "Invalid state: ${exception.message}")
+            is SecurityException -> ErrorFactory.securityError(exception)
+            is OutOfMemoryError -> ErrorFactory.criticalResourceError(context, "Out of memory")
+            is StackOverflowError -> ErrorFactory.criticalResourceError(context, "Stack overflow")
+            is java.io.IOException -> ErrorFactory.ioError(exception)
+            is TimeoutCancellationException -> ErrorFactory.timeoutError(context)
+            else -> ErrorFactory.unexpectedError(context, exception)
         }
 
-    private fun createValidationError(context: String, message: String) =
-        ApplicationError.UseCaseError(useCase = context, cause = message)
+    /**
+     * Factory for creating different types of application errors.
+     */
+    private object ErrorFactory {
+        fun validationError(context: String, message: String) =
+            ApplicationError.UseCaseError(useCase = context, cause = message)
 
-    private fun createSecurityError(exception: SecurityException) =
-        ApplicationError.OutputError("Security error: ${exception.message ?: "Access denied"}")
+        fun securityError(exception: SecurityException) =
+            ApplicationError.OutputError("Security error: ${exception.message ?: "Access denied"}")
 
-    private fun createCriticalResourceError(context: String, errorType: String): ApplicationError {
-        System.err.println("CRITICAL: $errorType in $context")
-        return ApplicationError.UseCaseError(useCase = context, cause = errorType)
+        fun criticalResourceError(context: String, errorType: String): ApplicationError {
+            System.err.println("CRITICAL: $errorType in $context")
+            return ApplicationError.UseCaseError(useCase = context, cause = errorType)
+        }
+
+        fun ioError(exception: java.io.IOException) =
+            ApplicationError.OutputError("I/O error: ${exception.message ?: "Failed to read/write"}")
+
+        fun timeoutError(context: String) =
+            ApplicationError.UseCaseError(useCase = context, cause = "Operation timed out")
+
+        fun unexpectedError(context: String, exception: Throwable) =
+            ApplicationError.UseCaseError(
+                useCase = context,
+                cause = "Unexpected error: ${exception.message ?: exception.javaClass.simpleName}",
+            )
     }
-
-    private fun createIOError(exception: java.io.IOException) =
-        ApplicationError.OutputError("I/O error: ${exception.message ?: "Failed to read/write"}")
-
-    private fun createTimeoutError(context: String) =
-        ApplicationError.UseCaseError(useCase = context, cause = "Operation timed out")
-
-    private fun createUnexpectedError(context: String, exception: Throwable) =
-        ApplicationError.UseCaseError(
-            useCase = context,
-            cause = "Unexpected error: ${exception.message ?: exception.javaClass.simpleName}",
-        )
 
     /**
      * Logs exceptions based on their severity.

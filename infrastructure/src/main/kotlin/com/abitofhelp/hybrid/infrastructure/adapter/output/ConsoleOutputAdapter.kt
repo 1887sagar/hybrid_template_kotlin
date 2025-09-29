@@ -12,6 +12,7 @@ import arrow.core.left
 import arrow.core.right
 import com.abitofhelp.hybrid.application.error.ApplicationError
 import com.abitofhelp.hybrid.application.port.output.OutputPort
+import java.io.PrintStream
 
 /**
  * Console implementation of the OutputPort.
@@ -59,7 +60,9 @@ import com.abitofhelp.hybrid.application.port.output.OutputPort
  * }
  * ```
  */
-class ConsoleOutputAdapter : OutputPort {
+class ConsoleOutputAdapter(
+    private val out: PrintStream = System.out,
+) : OutputPort {
 
     /**
      * Sends a message to the console (stdout).
@@ -101,7 +104,7 @@ class ConsoleOutputAdapter : OutputPort {
             require(message.isNotBlank()) { "Message cannot be blank" }
 
             // Print to console - the actual I/O operation
-            println(message)
+            out.println(message)
 
             // Return success
             Unit.right()

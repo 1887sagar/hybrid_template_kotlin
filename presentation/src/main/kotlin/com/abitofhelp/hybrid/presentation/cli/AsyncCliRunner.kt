@@ -337,7 +337,7 @@ fun asyncCli(cfg: PresentationConfig, createGreeting: CreateGreetingInputPort): 
     Runnable {
         val runner = AsyncCliRunner(createGreeting)
         // Use IO dispatcher to avoid blocking default thread pool
-        val result = runBlocking(Dispatchers.IO) {
+        runBlocking(Dispatchers.IO) {
             try {
                 runner.runAsync(cfg).await()
             } finally {
@@ -345,6 +345,5 @@ fun asyncCli(cfg: PresentationConfig, createGreeting: CreateGreetingInputPort): 
             }
         }
         // Exit code is handled by the bootstrap layer
-        // The 'result' variable exists but isn't used here
-        // because Runnable doesn't return a value
+        // Runnable doesn't return a value, so we don't use the result
     }

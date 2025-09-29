@@ -149,7 +149,7 @@ class BufferedFileOutputAdapter(
                 Unit.right()
             } else {
                 // Queue is full, try with timeout
-                withTimeout(100) {
+                withTimeout(QUEUE_SEND_TIMEOUT_MS) {
                     messageQueue.send(message)
                     Unit.right()
                 }
@@ -159,6 +159,8 @@ class BufferedFileOutputAdapter(
                 "Invalid message: ${e.message}",
             ).left()
         } catch (e: TimeoutCancellationException) {
+            // Log timeout to avoid swallowing exception
+            System.err.println("Queue send timeout: ${e.message}")
             ApplicationError.OutputError(
                 "Output queue is full, message dropped",
             ).left()
@@ -179,65 +181,83 @@ class BufferedFileOutputAdapter(
      */
     private suspend fun runWriter() {
         val path = Path(filePath)
+        ensureDirectoryExists(path)
 
-        // Ensure parent directory exists
-        path.parent?.let { parent ->
-            if (!parent.exists()) {
-                Files.createDirectories(parent)
-            }
-        }
-
-        // Open file channel for async operations
         AsynchronousFileChannel.open(
             path,
             StandardOpenOption.CREATE,
             StandardOpenOption.WRITE,
             StandardOpenOption.APPEND,
         ).use { fileChannel ->
+            processMessages(fileChannel)
+        }
+    }
 
-            val buffer = StringBuilder(bufferSize)
-            var lastFlush = System.currentTimeMillis()
-
-            try {
-                while (coroutineContext.isActive) {
-                    // Wait for message with timeout
-                    val message = withTimeoutOrNull(flushIntervalMs) {
-                        messageQueue.receive()
-                    }
-
-                    if (message != null) {
-                        // Add message to buffer
-                        buffer.append(message)
-                        buffer.append(System.lineSeparator())
-
-                        // Check if we should flush
-                        val shouldFlush =
-                            buffer.length >= bufferSize ||
-                                (System.currentTimeMillis() - lastFlush) >= flushIntervalMs
-
-                        if (shouldFlush) {
-                            flushBuffer(fileChannel, buffer)
-                            lastFlush = System.currentTimeMillis()
-                        }
-                    } else {
-                        // Timeout occurred, flush if buffer has content
-                        if (buffer.isNotEmpty()) {
-                            flushBuffer(fileChannel, buffer)
-                            lastFlush = System.currentTimeMillis()
-                        }
-                    }
-                }
-            } catch (e: ClosedReceiveChannelException) {
-                // Channel closed, flush remaining content
-                if (buffer.isNotEmpty()) {
-                    flushBuffer(fileChannel, buffer)
-                }
-            } finally {
-                // Ensure final flush
-                if (buffer.isNotEmpty()) {
-                    flushBuffer(fileChannel, buffer)
-                }
+    private fun ensureDirectoryExists(path: Path) {
+        path.parent?.let { parent ->
+            if (!parent.exists()) {
+                Files.createDirectories(parent)
             }
+        }
+    }
+
+    private suspend fun processMessages(fileChannel: AsynchronousFileChannel) {
+        val buffer = StringBuilder(bufferSize)
+        var lastFlush = System.currentTimeMillis()
+
+        try {
+            while (coroutineContext.isActive) {
+                val message = withTimeoutOrNull(flushIntervalMs) {
+                    messageQueue.receive()
+                }
+
+                val currentTime = System.currentTimeMillis()
+                lastFlush = handleMessage(fileChannel, buffer, message, lastFlush, currentTime)
+            }
+        } catch (e: ClosedReceiveChannelException) {
+            // Channel closed, flush remaining content - log to avoid swallowing
+            System.err.println("Message channel closed during processing: ${e.message}")
+            finalFlush(fileChannel, buffer)
+        } finally {
+            // Ensure final flush
+            finalFlush(fileChannel, buffer)
+        }
+    }
+
+    private suspend fun handleMessage(
+        fileChannel: AsynchronousFileChannel,
+        buffer: StringBuilder,
+        message: String?,
+        lastFlush: Long,
+        currentTime: Long,
+    ): Long {
+        return if (message != null) {
+            buffer.append(message)
+            buffer.append(System.lineSeparator())
+
+            val shouldFlush = buffer.length >= bufferSize ||
+                (currentTime - lastFlush) >= flushIntervalMs
+
+            if (shouldFlush) {
+                flushBuffer(fileChannel, buffer)
+                currentTime
+            } else {
+                lastFlush
+            }
+        } else {
+            // Timeout occurred, flush if buffer has content
+            if (buffer.isNotEmpty()) {
+                flushBuffer(fileChannel, buffer)
+                currentTime
+            } else {
+                lastFlush
+            }
+        }
+    }
+
+    private suspend fun finalFlush(fileChannel: AsynchronousFileChannel, buffer: StringBuilder) {
+        if (buffer.isNotEmpty()) {
+            flushBuffer(fileChannel, buffer)
         }
     }
 
@@ -369,7 +389,7 @@ class BufferedFileOutputAdapter(
             messageQueue.close()
 
             // Wait for writer to finish (with timeout)
-            withTimeoutOrNull(5000) {
+            withTimeoutOrNull(WRITER_JOIN_TIMEOUT_MS) {
                 writerJob.join()
             }
 
@@ -380,6 +400,10 @@ class BufferedFileOutputAdapter(
     }
 
     companion object {
+        // Timeout constants to avoid magic numbers
+        private const val QUEUE_SEND_TIMEOUT_MS = 100L
+        private const val WRITER_JOIN_TIMEOUT_MS = 5000L
+
         /**
          * Creates a high-throughput configuration.
          *

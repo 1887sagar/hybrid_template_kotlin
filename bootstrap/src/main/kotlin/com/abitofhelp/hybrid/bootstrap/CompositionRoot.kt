@@ -121,7 +121,7 @@ object CompositionRoot {
                 FileOutputAdapter(cfg.outputPath!!)
 
             // Console only
-            else -> ConsoleOutputAdapter()
+            else -> ConsoleOutputAdapter(System.out)
         }
 
         // ---- Application (use case depends on ports)

@@ -123,9 +123,7 @@ object SecureArgParser {
      */
     fun parseSecure(args: Array<String>): AppConfig {
         // Validate array size - prevent DoS via thousands of arguments
-        if (args.size > MAX_ARG_COUNT) {
-            throw IllegalArgumentException("Too many arguments: ${args.size}")
-        }
+        require(args.size <= MAX_ARG_COUNT) { "Too many arguments: ${args.size}" }
 
         var verbose = false
         var outputPath: String? = null
@@ -144,13 +142,10 @@ object SecureArgParser {
 
                 arg == OUT_FLAG -> {
                     processedArgs.add(i)
-                    if (i + 1 < args.size) {
-                        outputPath = validateOutputPath(args[i + 1])
-                        processedArgs.add(i + 1)
-                        i++ // Skip next arg since we consumed it
-                    } else {
-                        throw IllegalArgumentException("--out requires a file path")
-                    }
+                    require(i + 1 < args.size) { "--out requires a file path" }
+                    outputPath = validateOutputPath(args[i + 1])
+                    processedArgs.add(i + 1)
+                    i++ // Skip next arg since we consumed it
                 }
 
                 arg.startsWith(OUT_PREFIX) -> {
@@ -204,14 +199,10 @@ object SecureArgParser {
      */
     private fun validateArgument(arg: String): String {
         // Check length
-        if (arg.length > MAX_ARG_LENGTH) {
-            throw IllegalArgumentException("Argument too long: ${arg.length} characters")
-        }
+        require(arg.length <= MAX_ARG_LENGTH) { "Argument too long: ${arg.length} characters" }
 
         // Check for null bytes and control characters
-        if (arg.contains('\u0000')) {
-            throw IllegalArgumentException("Invalid argument: contains null byte")
-        }
+        require(!arg.contains('\u0000')) { "Invalid argument: contains null byte" }
 
         // Allow empty strings (they're harmless)
         if (arg.isEmpty()) {
@@ -265,15 +256,11 @@ object SecureArgParser {
         val sanitized = validateArgument(path)
 
         // Check length
-        if (sanitized.length > MAX_PATH_LENGTH) {
-            throw IllegalArgumentException("Path too long: ${sanitized.length} characters")
-        }
+        require(sanitized.length <= MAX_PATH_LENGTH) { "Path too long: ${sanitized.length} characters" }
 
         // Check for dangerous patterns
         DANGEROUS_PATTERNS.forEach { pattern ->
-            if (sanitized.contains(pattern)) {
-                throw IllegalArgumentException("Invalid path: contains '$pattern'")
-            }
+            require(!sanitized.contains(pattern)) { "Invalid path: contains '$pattern'" }
         }
 
         // Validate it's a proper path
@@ -298,19 +285,16 @@ object SecureArgParser {
             )
 
             forbiddenPaths.forEach { forbidden ->
-                if (pathStr.startsWith(forbidden)) {
-                    throw IllegalArgumentException("Cannot write to system directory: $forbidden")
-                }
+                require(!pathStr.startsWith(forbidden)) { "Cannot write to system directory: $forbidden" }
             }
 
             // Check if parent directory exists and is writable
             val parent = normalizedPath.parent
             if (parent != null && parent.toFile().exists()) {
-                if (!parent.toFile().canWrite()) {
-                    throw IllegalArgumentException("Cannot write to directory: $parent")
-                }
-                if (parent.isDirectory()) {
-                    throw IllegalArgumentException("Output path must be a file, not a directory")
+                require(parent.toFile().canWrite()) { "Cannot write to directory: $parent" }
+                // Don't allow writing to a directory directly
+                if (normalizedPath.toFile().exists()) {
+                    require(!normalizedPath.toFile().isDirectory) { "Output path must be a file, not a directory" }
                 }
             }
 
@@ -320,7 +304,7 @@ object SecureArgParser {
             System.err.println("Path normalization error: ${e.message}")
             when (e) {
                 is IllegalArgumentException -> throw e
-                else -> throw IllegalArgumentException("Invalid path: ${e.message}")
+                else -> throw IllegalArgumentException("Invalid path: ${e.message}", e)
             }
         }
     }
@@ -359,16 +343,12 @@ object SecureArgParser {
         val sanitized = validateArgument(name)
 
         // Check length
-        if (sanitized.length > MAX_NAME_LENGTH) {
-            throw IllegalArgumentException("Name too long: ${sanitized.length} characters")
-        }
+        require(sanitized.length <= MAX_NAME_LENGTH) { "Name too long: ${sanitized.length} characters" }
 
         // Check for command injection attempts in name
         val dangerousInName = listOf("$", "`", ";", "&", "|", ">", "<", "\n", "\r")
         dangerousInName.forEach { pattern ->
-            if (sanitized.contains(pattern)) {
-                throw IllegalArgumentException("Invalid character in name: '$pattern'")
-            }
+            require(!sanitized.contains(pattern)) { "Invalid character in name: '$pattern'" }
         }
 
         return sanitized.trim()

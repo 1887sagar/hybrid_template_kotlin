@@ -168,7 +168,9 @@ class AppTest : DescribeSpec({
                 val result = App.run(args)
 
                 // Then
-                result shouldBe 0 // parseArgs handles this gracefully
+                result shouldBe 2 // CONFIGURATION_ERROR exit code
+                val error = errorStream.toString()
+                error shouldContain "--out requires a file path"
             }
         }
 

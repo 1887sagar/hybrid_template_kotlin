@@ -7,9 +7,11 @@
 
 package com.abitofhelp.hybrid.bootstrap
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldContain
 
 class AppConfigTest : DescribeSpec({
 
@@ -81,26 +83,28 @@ class AppConfigTest : DescribeSpec({
 
             context("parsing output argument") {
                 it("should parse --out with value") {
-                    val args = arrayOf("--out", "/tmp/greeting.txt")
+                    val args = arrayOf("--out", "./test-output/greeting.txt")
                     val config = parseArgs(args)
 
-                    config.outputPath shouldBe "/tmp/greeting.txt"
+                    config.outputPath shouldContain "test-output/greeting.txt"
                     config.verbose shouldBe false
-                    config.name shouldBe "/tmp/greeting.txt" // Current impl takes this as name too
+                    config.name shouldBe null
                 }
 
                 it("should handle paths with spaces") {
-                    val args = arrayOf("--out", "/tmp/my file.txt")
-                    val config = parseArgs(args)
+                    val args = arrayOf("--out", "./test output/my file.txt")
 
-                    config.outputPath shouldBe "/tmp/my file.txt"
+                    // Spaces are allowed in paths
+                    val config = parseArgs(args)
+                    config.outputPath shouldContain "test output/my file.txt"
                 }
 
-                it("should return null if --out has no value") {
+                it("should throw error if --out has no value") {
                     val args = arrayOf("--out")
-                    val config = parseArgs(args)
 
-                    config.outputPath shouldBe null
+                    shouldThrow<IllegalArgumentException> {
+                        parseArgs(args)
+                    }.message shouldBe "--out requires a file path"
                 }
 
                 it("should use value after --out") {
@@ -161,8 +165,8 @@ class AppConfigTest : DescribeSpec({
                     )
                     val config = parseArgs(args)
 
-                    config.name shouldBe "file.txt" // Current impl takes first non-flag
-                    config.outputPath shouldBe "file.txt"
+                    config.name shouldBe "Bob"
+                    config.outputPath shouldContain "file.txt"
                     config.verbose shouldBe true
                 }
 
@@ -175,8 +179,8 @@ class AppConfigTest : DescribeSpec({
                     )
                     val config = parseArgs(args)
 
-                    config.name shouldBe "out.txt" // Current impl takes first non-flag
-                    config.outputPath shouldBe "out.txt"
+                    config.name shouldBe "Charlie"
+                    config.outputPath shouldContain "out.txt"
                     config.verbose shouldBe true
                 }
             }
@@ -195,17 +199,19 @@ class AppConfigTest : DescribeSpec({
                     val args = arrayOf("--verbose", "--out", "file.txt")
                     val config = parseArgs(args)
 
-                    config.name shouldBe "file.txt" // Current impl takes this as name
+                    config.name shouldBe null
                     config.verbose shouldBe true
-                    config.outputPath shouldBe "file.txt"
+                    config.outputPath shouldContain "file.txt"
                 }
 
                 it("should handle missing out value") {
                     val args = arrayOf("--out", "--verbose")
-                    val config = parseArgs(args)
 
-                    config.outputPath shouldBe "--verbose" // Takes the next argument even if it's a flag
-                    config.verbose shouldBe true
+                    // The parser will actually create a valid config with outputPath="--verbose"
+                    // and then continue parsing, finding no more arguments
+                    val config = parseArgs(args)
+                    config.outputPath shouldContain "--verbose"
+                    config.verbose shouldBe false // --verbose was consumed as a path
                 }
 
                 it("should handle non-flag arguments after flags") {

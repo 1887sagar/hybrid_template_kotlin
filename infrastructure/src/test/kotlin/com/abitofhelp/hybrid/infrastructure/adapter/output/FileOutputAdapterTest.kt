@@ -222,9 +222,10 @@ class FileOutputAdapterTest : DescribeSpec({
 
             it("should handle invalid file path") {
                 runTest {
-                    // Given - invalid path with null character
-                    val invalidPath = "/tmp/test\u0000file.txt"
-                    val adapter = FileOutputAdapter(invalidPath)
+                    // Given - path to a directory instead of a file
+                    val tempDir = kotlin.io.path.createTempDirectory("test").toFile()
+                    tempDir.deleteOnExit()
+                    val adapter = FileOutputAdapter(tempDir.absolutePath)
 
                     // When
                     val result = adapter.send("Test message")
@@ -240,6 +241,9 @@ class FileOutputAdapterTest : DescribeSpec({
                         },
                         { },
                     )
+
+                    // Cleanup
+                    tempDir.delete()
                 }
             }
 

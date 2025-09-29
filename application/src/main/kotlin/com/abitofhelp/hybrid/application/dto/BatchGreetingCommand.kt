@@ -102,11 +102,11 @@ data class BatchGreetingCommand(
      * @return Right(Unit) if valid, Left(ApplicationError) with details
      */
     fun validate(): Either<ApplicationError, Unit> {
-        val error = validateBatchSize() 
-            ?: validateNoDuplicates() 
-            ?: validateConcurrencyLimits() 
+        val error = validateBatchSize()
+            ?: validateNoDuplicates()
+            ?: validateConcurrencyLimits()
             ?: validateTemplate()
-        
+
         return error?.left() ?: Unit.right()
     }
 

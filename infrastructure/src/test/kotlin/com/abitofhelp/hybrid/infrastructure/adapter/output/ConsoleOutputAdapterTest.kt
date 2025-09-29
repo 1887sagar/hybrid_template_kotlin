@@ -22,8 +22,6 @@ class ConsoleOutputAdapterTest : DescribeSpec({
 
     describe("ConsoleOutputAdapter") {
 
-        val adapter = ConsoleOutputAdapter()
-
         describe("send") {
 
             context("when sending valid messages") {
@@ -31,23 +29,18 @@ class ConsoleOutputAdapterTest : DescribeSpec({
                     runTest {
                         // Capture console output
                         val outputStream = ByteArrayOutputStream()
-                        val originalOut = System.out
-                        System.setOut(PrintStream(outputStream))
+                        val testPrintStream = PrintStream(outputStream)
+                        val adapter = ConsoleOutputAdapter(testPrintStream)
 
-                        try {
-                            // Given
-                            val message = "Hello, World!"
+                        // Given
+                        val message = "Hello, World!"
 
-                            // When
-                            val result = adapter.send(message)
+                        // When
+                        val result = adapter.send(message)
 
-                            // Then
-                            result shouldBe Unit.right()
-                            outputStream.toString() shouldContain message
-                        } finally {
-                            // Restore original console
-                            System.setOut(originalOut)
-                        }
+                        // Then
+                        result shouldBe Unit.right()
+                        outputStream.toString() shouldContain message
                     }
                 }
 
@@ -55,26 +48,21 @@ class ConsoleOutputAdapterTest : DescribeSpec({
                     runTest {
                         // Capture console output
                         val outputStream = ByteArrayOutputStream()
-                        val originalOut = System.out
-                        System.setOut(PrintStream(outputStream))
+                        val testPrintStream = PrintStream(outputStream)
+                        val adapter = ConsoleOutputAdapter(testPrintStream)
 
-                        try {
-                            // Given
-                            val message = "Line 1\nLine 2\nLine 3"
+                        // Given
+                        val message = "Line 1\nLine 2\nLine 3"
 
-                            // When
-                            val result = adapter.send(message)
+                        // When
+                        val result = adapter.send(message)
 
-                            // Then
-                            result shouldBe Unit.right()
-                            val output = outputStream.toString()
-                            output shouldContain "Line 1"
-                            output shouldContain "Line 2"
-                            output shouldContain "Line 3"
-                        } finally {
-                            // Restore original console
-                            System.setOut(originalOut)
-                        }
+                        // Then
+                        result shouldBe Unit.right()
+                        val output = outputStream.toString()
+                        output shouldContain "Line 1"
+                        output shouldContain "Line 2"
+                        output shouldContain "Line 3"
                     }
                 }
 
@@ -82,23 +70,18 @@ class ConsoleOutputAdapterTest : DescribeSpec({
                     runTest {
                         // Capture console output
                         val outputStream = ByteArrayOutputStream()
-                        val originalOut = System.out
-                        System.setOut(PrintStream(outputStream))
+                        val testPrintStream = PrintStream(outputStream)
+                        val adapter = ConsoleOutputAdapter(testPrintStream)
 
-                        try {
-                            // Given
-                            val message = "Hello! @#$%^&*() 你好 🎉"
+                        // Given
+                        val message = "Hello! @#$%^&*() 你好 🎉"
 
-                            // When
-                            val result = adapter.send(message)
+                        // When
+                        val result = adapter.send(message)
 
-                            // Then
-                            result shouldBe Unit.right()
-                            outputStream.toString() shouldContain message
-                        } finally {
-                            // Restore original console
-                            System.setOut(originalOut)
-                        }
+                        // Then
+                        result shouldBe Unit.right()
+                        outputStream.toString() shouldContain message
                     }
                 }
             }
@@ -108,6 +91,7 @@ class ConsoleOutputAdapterTest : DescribeSpec({
                     runTest {
                         // Given
                         val message = ""
+                        val adapter = ConsoleOutputAdapter(System.out)
 
                         // When
                         val result = adapter.send(message)
@@ -124,6 +108,7 @@ class ConsoleOutputAdapterTest : DescribeSpec({
                     runTest {
                         // Given
                         val message = "   "
+                        val adapter = ConsoleOutputAdapter(System.out)
 
                         // When
                         val result = adapter.send(message)
@@ -140,29 +125,23 @@ class ConsoleOutputAdapterTest : DescribeSpec({
             context("when console operations fail") {
                 it("should handle exception during print") {
                     runTest {
-                        // Mock System.out to throw exception
+                        // Mock PrintStream to throw exception
                         val mockPrintStream = mockk<PrintStream>()
-                        val originalOut = System.out
-                        System.setOut(mockPrintStream)
+                        val adapter = ConsoleOutputAdapter(mockPrintStream)
 
-                        try {
-                            // Given
-                            val message = "Test message"
-                            val exception = RuntimeException("Console error")
-                            every { mockPrintStream.println(message) } throws exception
+                        // Given
+                        val message = "Test message"
+                        val exception = RuntimeException("Console error")
+                        every { mockPrintStream.println(message) } throws exception
 
-                            // When
-                            val result = adapter.send(message)
+                        // When
+                        val result = adapter.send(message)
 
-                            // Then
-                            result.isLeft() shouldBe true
-                            val error = result.leftOrNull()!!
-                            error.shouldBeInstanceOf<ApplicationError.OutputError>()
-                            error.message shouldContain "Unexpected error writing to console"
-                        } finally {
-                            // Restore original console
-                            System.setOut(originalOut)
-                        }
+                        // Then
+                        result.isLeft() shouldBe true
+                        val error = result.leftOrNull()!!
+                        error.shouldBeInstanceOf<ApplicationError.OutputError>()
+                        error.message shouldContain "Unexpected error writing to console"
                     }
                 }
             }
@@ -170,6 +149,7 @@ class ConsoleOutputAdapterTest : DescribeSpec({
 
         describe("interface implementation") {
             it("should implement OutputPort") {
+                val adapter = ConsoleOutputAdapter(System.out)
                 adapter.shouldBeInstanceOf<com.abitofhelp.hybrid.application.port.output.OutputPort>()
             }
         }

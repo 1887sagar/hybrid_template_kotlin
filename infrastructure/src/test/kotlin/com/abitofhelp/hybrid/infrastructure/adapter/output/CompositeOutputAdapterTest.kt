@@ -110,7 +110,7 @@ class CompositeOutputAdapterTest : DescribeSpec({
                     result.isLeft() shouldBe true
                     result.fold(
                         { error ->
-                            (error as ApplicationError.OutputError).message shouldContain 
+                            (error as ApplicationError.OutputError).message shouldContain
                                 "Failed to send to 2 of 2 outputs"
                             error.message shouldContain "Error 1"
                             error.message shouldContain "Error 2"

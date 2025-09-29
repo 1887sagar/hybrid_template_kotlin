@@ -285,7 +285,8 @@ class CliFactoryTest : DescribeSpec({
                     runnable.run()
 
                     // Then
-                    errorStream.toString() shouldContain "Error: Processing error in CreateGreeting: Internal processing error"
+                    errorStream.toString() shouldContain
+                        "Error: Processing error in CreateGreeting: Internal processing error"
                 }
             }
 

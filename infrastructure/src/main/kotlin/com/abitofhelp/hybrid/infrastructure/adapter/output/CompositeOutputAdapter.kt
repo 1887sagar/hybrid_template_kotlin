@@ -131,7 +131,7 @@ class CompositeOutputAdapter(
                             is ApplicationError.DomainErrorWrapper -> error.userMessage
                             is ApplicationError.UseCaseError -> "${error.useCase}: ${error.cause}"
                             is ApplicationError.ValidationError -> "${error.field}: ${error.message}"
-                            is ApplicationError.BatchValidationError -> 
+                            is ApplicationError.BatchValidationError ->
                                 "Batch error for '${error.item}': ${error.error}"
                         }
                     },
