@@ -1,21 +1,21 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template - Test Suite
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.bootstrap
 
 import io.kotest.core.spec.style.DescribeSpec
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.collections.shouldContain
-import io.kotest.matchers.string.shouldContain as stringContain
 import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Duration.Companion.milliseconds
+import io.kotest.matchers.string.shouldContain as stringContain
 
 /**
  * Comprehensive test suite for [AsyncApp] asynchronous application execution.
@@ -124,7 +124,7 @@ class AsyncAppTest : DescribeSpec({
                     val exitCode = CompositionRoot.buildAndRunAsyncForTesting(
                         cfg = config,
                         outputPort = outputCollector,
-                        errorOutputPort = errorCollector
+                        errorOutputPort = errorCollector,
                     )
 
                     // Then
@@ -145,7 +145,7 @@ class AsyncAppTest : DescribeSpec({
                     val exitCode = CompositionRoot.buildAndRunAsyncForTesting(
                         cfg = config,
                         outputPort = outputCollector,
-                        errorOutputPort = errorCollector
+                        errorOutputPort = errorCollector,
                     )
 
                     // Then
@@ -167,7 +167,7 @@ class AsyncAppTest : DescribeSpec({
                         CompositionRoot.buildAndRunAsyncForTesting(
                             cfg = config,
                             outputPort = outputCollector,
-                            errorOutputPort = errorCollector
+                            errorOutputPort = errorCollector,
                         )
                     }
 
@@ -197,7 +197,7 @@ class AsyncAppTest : DescribeSpec({
                     val exitCode = CompositionRoot.buildAndRunAsyncForTesting(
                         cfg = config,
                         outputPort = outputCollector,
-                        errorOutputPort = errorCollector
+                        errorOutputPort = errorCollector,
                     )
 
                     // Then
@@ -217,7 +217,7 @@ class AsyncAppTest : DescribeSpec({
                     val exitCode = CompositionRoot.buildAndRunAsyncForTesting(
                         cfg = config,
                         outputPort = outputCollector,
-                        errorOutputPort = errorCollector
+                        errorOutputPort = errorCollector,
                     )
 
                     // Then - empty name becomes anonymous
@@ -240,7 +240,7 @@ class AsyncAppTest : DescribeSpec({
                     val exitCode = CompositionRoot.buildAndRunAsyncForTesting(
                         cfg = config,
                         outputPort = outputCollector,
-                        errorOutputPort = errorCollector
+                        errorOutputPort = errorCollector,
                     )
 
                     // Then
@@ -262,19 +262,18 @@ class AsyncAppTest : DescribeSpec({
                     val exitCode = CompositionRoot.buildAndRunAsyncForTesting(
                         cfg = config,
                         outputPort = outputCollector,
-                        errorOutputPort = errorCollector
+                        errorOutputPort = errorCollector,
                     )
 
                     // Then
                     exitCode shouldBe 0
                     // With file output, the greeting should not be in the output collector
                     // since it goes to the file instead
-                    
+
                     // Clean up
                     tempFile.toFile().delete()
                 }
             }
         }
-
     }
 })

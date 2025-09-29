@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.bootstrap
 
@@ -49,11 +49,13 @@ package com.abitofhelp.hybrid.bootstrap
  * ```
  *
  * @property verbose Enable detailed logging and debug information
+ * @property quiet Suppress non-essential output (overrides verbose)
  * @property outputPath Optional file path for output (null = console only)
  * @property name Optional name for personalization (null = anonymous)
  */
 data class AppConfig(
     val verbose: Boolean = false,
+    val quiet: Boolean = false,
     val outputPath: String? = null,
     val name: String? = null,
 )

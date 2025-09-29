@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.bootstrap
 
@@ -125,60 +125,76 @@ object SecureArgParser {
         // Validate array size - prevent DoS via thousands of arguments
         require(args.size <= MAX_ARG_COUNT) { "Too many arguments: ${args.size}" }
 
-        var verbose = false
-        var outputPath: String? = null
-        var name: String? = null
-        val processedArgs = mutableSetOf<Int>() // Track which args we've processed
+        val parseState = ParseState()
+        processArguments(args, parseState)
 
+        return AppConfig(
+            verbose = parseState.verbose,
+            quiet = parseState.quiet,
+            outputPath = parseState.outputPath,
+            name = parseState.name,
+        )
+    }
+
+    private fun processArguments(args: Array<String>, state: ParseState) {
         var i = 0
         while (i < args.size) {
             val arg = validateArgument(args[i])
+            val consumed = processArgument(arg, args, i, state)
+            i += consumed
+        }
+    }
 
-            when {
-                arg == "--verbose" || arg == "-v" -> {
-                    verbose = true
-                    processedArgs.add(i)
-                }
-
-                arg == OUT_FLAG -> {
-                    processedArgs.add(i)
-                    require(i + 1 < args.size) { "--out requires a file path" }
-                    outputPath = validateOutputPath(args[i + 1])
-                    processedArgs.add(i + 1)
-                    i++ // Skip next arg since we consumed it
-                }
-
-                arg.startsWith(OUT_PREFIX) -> {
-                    // Handle --out=/path/to/file format
-                    outputPath = validateOutputPath(arg.substring(OUT_PREFIX.length))
-                    processedArgs.add(i)
-                }
-
-                arg == "--help" || arg == "-h" -> {
-                    throw ShowHelpException()
-                }
-
-                arg.startsWith("-") -> {
-                    throw IllegalArgumentException("Unknown option: $arg")
-                }
-
-                else -> {
-                    // Non-flag argument - should be the name
-                    if (name == null && !processedArgs.contains(i)) {
-                        name = validateName(arg)
-                        processedArgs.add(i)
-                    }
-                }
+    private fun processArgument(arg: String, args: Array<String>, index: Int, state: ParseState): Int =
+        when {
+            arg == "--verbose" || arg == "-v" -> {
+                state.verbose = true
+                state.processedArgs.add(index)
+                1
             }
-            i++
+
+            arg == "--quiet" || arg == "-q" -> {
+                state.quiet = true
+                state.processedArgs.add(index)
+                1
+            }
+
+            arg == "--version" -> throw ShowVersionException()
+
+            arg == OUT_FLAG -> {
+                require(index + 1 < args.size) { "--out requires a file path" }
+                state.outputPath = validateOutputPath(args[index + 1])
+                state.processedArgs.add(index)
+                state.processedArgs.add(index + 1)
+                2 // Consumed current arg and next arg
+            }
+
+            arg.startsWith(OUT_PREFIX) -> {
+                state.outputPath = validateOutputPath(arg.substring(OUT_PREFIX.length))
+                state.processedArgs.add(index)
+                1
+            }
+
+            arg == "--help" || arg == "-h" -> throw ShowHelpException()
+
+            arg.startsWith("-") -> throw IllegalArgumentException("Unknown option: $arg")
+
+            else -> {
+                if (state.name == null && !state.processedArgs.contains(index)) {
+                    state.name = validateName(arg)
+                    state.processedArgs.add(index)
+                }
+                1
+            }
         }
 
-        return AppConfig(
-            verbose = verbose,
-            outputPath = outputPath,
-            name = name,
-        )
-    }
+    private data class ParseState(
+        var verbose: Boolean = false,
+        var quiet: Boolean = false,
+        var outputPath: String? = null,
+        var name: String? = null,
+        val processedArgs: MutableSet<Int> = mutableSetOf(),
+    )
 
     /**
      * Validates a single argument for common security issues.
@@ -379,6 +395,13 @@ object SecureArgParser {
 class ShowHelpException : Exception("Show help requested")
 
 /**
+ * Exception thrown when version is requested.
+ *
+ * Similar to ShowHelpException but for version display.
+ */
+class ShowVersionException : Exception("Version requested")
+
+/**
  * Convenience function to parse arguments with help handling.
  *
  * ## Two-Layer Design
@@ -400,6 +423,9 @@ fun parseArgs(args: Array<String>): AppConfig {
         SecureArgParser.parseSecure(args)
     } catch (e: ShowHelpException) {
         printHelp()
+        throw e
+    } catch (e: ShowVersionException) {
+        printVersion()
         throw e
     }
 }
@@ -429,7 +455,9 @@ private fun printHelp() {
         
         Options:
           -v, --verbose     Enable verbose output
+          -q, --quiet       Suppress non-essential output
           --out PATH        Write output to file (instead of console)
+          --version         Show version information
           -h, --help        Show this help message
           
         Examples:
@@ -439,4 +467,17 @@ private fun printHelp() {
           hybrid --out=output.txt --verbose Charlie
         """.trimIndent(),
     )
+}
+
+/**
+ * Prints version information.
+ *
+ * Displays the application version and build information.
+ * Uses the version from the package manifest or defaults to development.
+ */
+private fun printVersion() {
+    val version = SecureArgParser::class.java.`package`?.implementationVersion ?: "1.0.0-dev"
+    println("Kotlin Hybrid Architecture Template $version")
+    println("Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.")
+    println("Licensed under BSD-3-Clause")
 }

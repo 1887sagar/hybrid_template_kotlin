@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template - Test Suite
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.domain.service
 
@@ -124,10 +124,10 @@ class GreetingServiceTest : DescribeSpec({
                     kotlinx.coroutines.test.runTest {
                         // Given: A valid person name
                         val name = PersonName.create("John").getOrNull()!!
-                        
+
                         // When: Creating a greeting
                         val result = testService.createGreeting(name)
-                        
+
                         // Then: Should return Right with greeting
                         result shouldBe "Hello, John!".right()
                     }
@@ -153,10 +153,10 @@ class GreetingServiceTest : DescribeSpec({
                     kotlinx.coroutines.test.runTest {
                         // Given: A name that triggers error behavior
                         val errorTriggeringName = PersonName.create("Error").getOrNull()!!
-                        
+
                         // When: Creating a greeting with error-triggering input
                         val result = testService.createGreeting(errorTriggeringName)
-                        
+
                         // Then: Should return Left with specific error
                         result shouldBe DomainError.ValidationError("name", "Test error").left()
                     }
@@ -172,7 +172,7 @@ class GreetingServiceTest : DescribeSpec({
                         // confirms proper suspend function implementation
                         val name = PersonName.anonymous()
                         val result = testService.createGreeting(name)
-                        
+
                         // Verify we get a valid Either result
                         result.isRight() shouldBe true
                     }

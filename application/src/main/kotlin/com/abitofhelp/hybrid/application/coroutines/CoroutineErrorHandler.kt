@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.application.coroutines
 
@@ -81,11 +81,11 @@ object CoroutineErrorHandler {
      * block for all coroutines in a scope.
      *
      * ## Parameters Explained
-     * 
+     *
      * @param context A descriptive name for where this handler is used (e.g., "UserSync", "DataLoad").
      *                This helps with debugging by identifying which part of the app had the error.
      *                Default is "Unknown" if not specified.
-     * 
+     *
      * @param onError A callback function that receives the ApplicationError when something goes wrong.
      *                You can use this to log errors, show user messages, or trigger recovery actions.
      *                Default behavior prints to stderr.
@@ -94,7 +94,7 @@ object CoroutineErrorHandler {
      * ```kotlin
      * // Basic usage with default error printing
      * val handler = CoroutineErrorHandler.create("FileUpload")
-     * 
+     *
      * // Custom error handling with user notification
      * val handler = CoroutineErrorHandler.create(
      *     context = "ImageProcessing",
@@ -146,7 +146,7 @@ object CoroutineErrorHandler {
      * ## Exception Categories
      * - **CancellationException**: Special case - always rethrown to respect coroutine cancellation
      * - **Validation Errors**: IllegalArgumentException, IllegalStateException
-     * - **Security Errors**: SecurityException for permission/access issues  
+     * - **Security Errors**: SecurityException for permission/access issues
      * - **Critical Errors**: OutOfMemoryError, StackOverflowError need immediate attention
      * - **I/O Errors**: Network, file system, database connection issues
      * - **Timeout Errors**: Operations that took too long
@@ -225,7 +225,7 @@ object CoroutineErrorHandler {
      *
      * ## Logging Strategy
      * - **Critical Errors** (OutOfMemoryError, StackOverflowError): Log with context name
-     * - **Cancellation**: Don't log (normal coroutine lifecycle)  
+     * - **Cancellation**: Don't log (normal coroutine lifecycle)
      * - **Everything Else**: Print full stack trace for debugging
      *
      * ## Why Different Logging Levels?
@@ -287,11 +287,11 @@ object CoroutineErrorHandler {
      *
      * // Handle the result
      * userResult.fold(
-     *     { error -> 
+     *     { error ->
      *         logger.error("Failed to load user: $error")
      *         showErrorMessage(error.userMessage)
      *     },
-     *     { user -> 
+     *     { user ->
      *         updateUI(user)
      *     }
      * )
@@ -428,8 +428,8 @@ object CoroutineErrorHandler {
  *
  * // With error handling
  * try {
- *     val result = retryWithBackoff { 
- *         riskyOperation() 
+ *     val result = retryWithBackoff {
+ *         riskyOperation()
  *     }
  * } catch (e: Exception) {
  *     // All retries failed

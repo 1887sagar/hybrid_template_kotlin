@@ -13,11 +13,33 @@ package "Infrastructure Layer" {
         
         class FileOutputAdapter {
             - filePath: String
+            - autoFlush: Boolean = false
             + suspend send(message: String): Either<ApplicationError, Unit>
             --
             - creates parent directories
             - appends to file
             - async I/O with Dispatchers.IO
+            - enhanced path validation
+            - optional sync flush to disk
+        }
+        
+        class BufferedFileOutputAdapter {
+            - filePath: String
+            - bufferSize: Int = 8192
+            - flushIntervalMs: Long = 1000
+            - maxQueueSize: Int = 10000
+            - autoFlush: Boolean = false
+            + suspend send(message: String): Either<ApplicationError, Unit>
+            + suspend flush(): Either<ApplicationError, Unit>
+            + getBytesWritten(): Long
+            + getQueueSize(): Int
+            + close()
+            --
+            - NIO AsynchronousFileChannel
+            - Background writer coroutine
+            - Message queuing with channels
+            - Configurable buffering strategy
+            - Performance metrics
         }
         
         class CompositeOutputAdapter {
@@ -75,6 +97,7 @@ package "Domain Layer" <<Rectangle>> {
 ' Implementation relationships
 ConsoleOutputAdapter ..|> OutputPort
 FileOutputAdapter ..|> OutputPort
+BufferedFileOutputAdapter ..|> OutputPort
 CompositeOutputAdapter ..|> OutputPort
 DefaultGreetingService ..|> GreetingService
 DatabaseOutputAdapter ..|> OutputPort
@@ -100,11 +123,24 @@ note right of ConsoleOutputAdapter
 end note
 
 note right of FileOutputAdapter
-    File Adapter:
-    - Async file I/O
-    - Creates directories
-    - Append mode
-    - Security validation
+    Enhanced File Adapter:
+    - Async file I/O with Dispatchers.IO
+    - Auto-creates parent directories
+    - Append mode with optional SYNC
+    - Enhanced path validation (security)
+    - Configurable autoFlush behavior
+    - Cross-platform compatibility
+end note
+
+note right of BufferedFileOutputAdapter  
+    High-Performance Buffered Adapter:
+    - NIO AsynchronousFileChannel
+    - Background writer coroutine
+    - Configurable buffer size & flush interval
+    - Message queuing with channels
+    - Performance metrics (bytes written)
+    - Graceful shutdown with resource cleanup
+    - Factory methods: highThroughput(), lowLatency()
 end note
 
 note right of CompositeOutputAdapter

@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.presentation.cli
 
@@ -67,9 +67,9 @@ import kotlinx.coroutines.runBlocking
  *     outputPath = "/tmp/greetings.txt",
  *     name = "Alice"
  * )
- * 
+ *
  * val cliProgram = cli(config, greetingUseCase)
- * 
+ *
  * // Execute in a thread
  * val thread = Thread(cliProgram)
  * thread.start()

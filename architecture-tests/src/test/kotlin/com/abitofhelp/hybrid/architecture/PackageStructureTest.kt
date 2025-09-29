@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template - Test Suite
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.architecture
 
@@ -129,32 +129,32 @@ class PackageStructureTest {
      * Validates that value objects are placed in appropriate domain sub-packages.
      *
      * ## Value Object Placement Rules
-     * 
+     *
      * Value objects can be placed in either:
      * - `domain.value` - Dedicated value object package (recommended)
      * - `domain.model` - General domain model package (legacy support)
-     * 
+     *
      * ## Why Package Placement Matters
-     * 
+     *
      * Consistent placement helps with:
      * 1. **Discoverability**: Developers know where to find value objects
      * 2. **Import Organization**: IDE can organize imports consistently
      * 3. **Build Tool Integration**: Tools can process value objects specially
      * 4. **Code Generation**: Tooling can generate based on package patterns
-     * 
+     *
      * ## Examples
-     * 
+     *
      * ```kotlin
      * // ✅ Good - In value object package
      * package com.example.domain.value
      * @JvmInline
      * value class PersonName(val value: String)
-     * 
+     *
      * // ✅ Also Good - In model package (legacy)
      * package com.example.domain.model
      * @JvmInline
      * value class Email(val value: String)
-     * 
+     *
      * // ❌ Bad - In wrong layer
      * package com.example.application.dto
      * @JvmInline
@@ -288,23 +288,23 @@ class PackageStructureTest {
      * Ensures bootstrap module contains only appropriate startup and configuration classes.
      *
      * ## Bootstrap Module Purity
-     * 
+     *
      * The bootstrap module should be the **thinnest possible layer** containing only:
      * - **CompositionRoot**: Dependency wiring
      * - **App**: Application startup logic
      * - **AppConfig**: Configuration classes
      * - **EntryPoint**: Main function containers
      * - **Config classes**: Settings and environment configuration
-     * 
+     *
      * ## Why This Restriction Matters
-     * 
+     *
      * 1. **Single Responsibility**: Bootstrap has one job - start the application
      * 2. **Testability**: Business logic should be testable without bootstrap
      * 3. **Clarity**: Clear separation between startup and business logic
      * 4. **Maintainability**: Changes to business logic don't affect startup
-     * 
+     *
      * ## Allowed Class Patterns
-     * 
+     *
      * Classes in bootstrap must match these naming patterns:
      * ```kotlin
      * // ✅ Good - Bootstrap classes
@@ -313,13 +313,13 @@ class PackageStructureTest {
      * class App { /* application startup */ }
      * class EntryPoint { /* main function */ }
      * object DatabaseConfig { /* configuration */ }
-     * 
+     *
      * // Special handling for argument parsing
      * class SecureArgParser { /* contains 'parseArgs' in name */ }
      * ```
-     * 
+     *
      * ## Prohibited in Bootstrap
-     * 
+     *
      * ```kotlin
      * // ❌ Bad - Business logic
      * class OrderValidator { /* belongs in domain! */ }
@@ -327,9 +327,9 @@ class PackageStructureTest {
      * class DatabaseRepository { /* belongs in infrastructure! */ }
      * class CliCommand { /* belongs in presentation! */ }
      * ```
-     * 
+     *
      * ## How to Fix Violations
-     * 
+     *
      * If business logic accidentally ends up in bootstrap:
      * 1. **Identify the correct layer** for the logic
      * 2. **Move the class** to appropriate package

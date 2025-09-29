@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.application.port.output
 
@@ -46,9 +46,9 @@ import com.abitofhelp.hybrid.application.error.ApplicationError
  * ) {
  *     suspend fun handleUserError(error: ApplicationError) {
  *         val userMessage = when (error) {
- *             is ApplicationError.ValidationError -> 
+ *             is ApplicationError.ValidationError ->
  *                 "Please check your input: ${error.message}"
- *             is ApplicationError.OutputError -> 
+ *             is ApplicationError.OutputError ->
  *                 "Unable to save your changes. Please try again."
  *             else -> "Something went wrong. Please try again later."
  *         }

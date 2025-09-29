@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template - Test Suite
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.infrastructure.adapter.output
 
@@ -60,11 +60,11 @@ import java.nio.file.Files
  * ## Platform Considerations
  * The BufferedFileOutputAdapter relies on Java's AsynchronousFileChannel, which has
  * platform-specific behavior:
- * 
+ *
  * - **macOS**: Limited support in some test environments
  * - **Windows**: Full NIO.2 support typically available
  * - **Linux**: Generally well-supported across distributions
- * 
+ *
  * Tests use `@Ignored` and runtime checks to handle these differences gracefully.
  *
  * ## Performance Implications

@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template - Test Suite
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.architecture
 
@@ -140,12 +140,12 @@ class VerticalSliceTest {
      * Validates that vertical slices properly implement the inward dependency flow pattern.
      *
      * ## What This Test Verifies
-     * 
+     *
      * This test ensures that feature components (like "greeting") are properly distributed
      * across architectural layers while respecting dependency direction rules.
-     * 
+     *
      * ## Inward Dependency Flow
-     * 
+     *
      * Dependencies must flow toward the domain center:
      * ```
      * Presentation → Application → Domain ← Infrastructure
@@ -155,25 +155,25 @@ class VerticalSliceTest {
      *                                   ^
      *                              Domain Core
      * ```
-     * 
+     *
      * ## Feature Distribution Example
-     * 
+     *
      * The "greeting" feature should have components in these layers:
      * - **Domain**: `GreetingService`, `PersonName` (business logic)
      * - **Application**: `CreateGreetingUseCase` (orchestration)
      * - **Infrastructure**: `DefaultGreetingService` (implementation)
      * - **Presentation**: CLI handling (user interface)
      * - **Bootstrap**: Wiring everything together
-     * 
+     *
      * ## Why This Pattern Works
-     * 
+     *
      * 1. **Domain Independence**: Core business logic has no external dependencies
      * 2. **Layer Isolation**: Each layer has a clear, single responsibility
      * 3. **Testability**: Inner layers can be tested without outer layers
      * 4. **Flexibility**: Infrastructure can be swapped without affecting business logic
-     * 
+     *
      * ## Testing Strategy
-     * 
+     *
      * This test validates the concept that vertical slices can span layers
      * while the actual dependency rules are enforced by `LayerDependencyTest`.
      * It's more about feature organization than strict architectural violations.
@@ -270,23 +270,23 @@ class VerticalSliceTest {
      * Ensures that domain layer remains free of infrastructure framework dependencies.
      *
      * ## Why Domain Must Stay Pure
-     * 
+     *
      * The domain layer represents **pure business logic** and must not depend on:
      * 1. **Web Frameworks**: Spring, Ktor, etc.
      * 2. **Persistence Frameworks**: Hibernate, JPA, etc.
      * 3. **Dependency Injection**: Guice, Dagger, Koin, etc.
      * 4. **External Libraries**: Unless they're domain-relevant (like money libraries)
-     * 
+     *
      * ## Prohibited Framework Dependencies
-     * 
+     *
      * ```kotlin
      * // ❌ Bad - Infrastructure leaking into domain
      * package com.example.domain.service
-     * 
+     *
      * import org.springframework.stereotype.Service  // Framework dependency!
      * import jakarta.persistence.Entity             // JPA dependency!
      * import com.google.inject.Inject               // DI framework!
-     * 
+     *
      * @Service  // Spring annotation in domain!
      * class OrderService @Inject constructor(      // DI in domain!
      *     private val repository: OrderRepository
@@ -295,14 +295,14 @@ class VerticalSliceTest {
      *         // Business logic
      *     }
      * }
-     * 
+     *
      * // ✅ Good - Pure domain service
      * package com.example.domain.service
-     * 
+     *
      * interface OrderService {  // Pure interface
      *     fun createOrder(items: List<OrderItem>): Order
      * }
-     * 
+     *
      * class OrderServiceImpl : OrderService {  // Pure implementation
      *     override fun createOrder(items: List<OrderItem>): Order {
      *         // Pure business logic with no framework dependencies
@@ -310,25 +310,25 @@ class VerticalSliceTest {
      *     }
      * }
      * ```
-     * 
+     *
      * ## Benefits of Pure Domain
-     * 
+     *
      * 1. **Framework Independence**: Can use any framework or no framework
      * 2. **Fast Testing**: No need to start Spring context for domain tests
      * 3. **Clear Business Logic**: No technical noise obscuring business rules
      * 4. **Portability**: Domain logic can be moved between applications
      * 5. **Long-term Stability**: Business logic outlasts framework choices
-     * 
+     *
      * ## Allowed Domain Dependencies
-     * 
+     *
      * The domain layer may depend on:
      * - **Kotlin Standard Library**: Collections, functions, etc.
      * - **Java Standard Library**: Basic utilities
      * - **Arrow Core**: Functional programming utilities (Either, Option)
      * - **Domain-Specific Libraries**: Money libraries, time libraries
-     * 
+     *
      * ## Framework Placement
-     * 
+     *
      * Instead of polluting domain with frameworks:
      * ```kotlin
      * // Infrastructure layer handles frameworks
@@ -336,7 +336,7 @@ class VerticalSliceTest {
      * class SpringOrderService(
      *     private val domainService: OrderService  // Pure domain service
      * ) : OrderApplicationService {
-     *     
+     *
      *     @Transactional  // Framework concern
      *     override fun createOrder(command: CreateOrderCommand) {
      *         val items = command.toOrderItems()

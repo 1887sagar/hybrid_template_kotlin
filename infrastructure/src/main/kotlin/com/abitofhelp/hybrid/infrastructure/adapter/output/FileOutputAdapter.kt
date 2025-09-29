@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.infrastructure.adapter.output
 
@@ -34,6 +34,7 @@ import kotlin.io.path.isRegularFile
  * 1. **Auto-creates directories**: Parent directories are created if missing
  * 2. **Append mode**: Messages are added to existing files, not overwritten
  * 3. **Line separators**: Uses system-appropriate line endings (\n or \r\n)
+ * 4. **AutoFlush**: Optional immediate flushing to disk for durability
  *
  * ## Why Use Files for Output?
  * - **Persistence**: Messages survive application restarts
@@ -41,10 +42,14 @@ import kotlin.io.path.isRegularFile
  * - **Integration**: Other tools can process the files
  * - **Compliance**: Audit trails and logging requirements
  *
+ * ## AutoFlush Behavior
+ * - `autoFlush = true`: Each write is immediately flushed to disk (safer, slower)
+ * - `autoFlush = false`: Relies on OS buffering (faster, less durable)
+ *
  * ## Example Usage
  * ```kotlin
  * // Create adapter with specific file
- * val fileOutput = FileOutputAdapter("/var/log/greetings.txt")
+ * val fileOutput = FileOutputAdapter("/var/log/greetings.txt", autoFlush = true)
  *
  * // Use in composition
  * val useCase = CreateGreetingUseCase(
@@ -65,9 +70,11 @@ import kotlin.io.path.isRegularFile
  * Multiple threads can write concurrently without corruption.
  *
  * @property filePath The path where messages will be written
+ * @property autoFlush Whether to immediately flush writes to disk
  */
 class FileOutputAdapter(
     private val filePath: String,
+    private val autoFlush: Boolean = false,
 ) : OutputPort {
 
     /**
@@ -119,8 +126,8 @@ class FileOutputAdapter(
                 // Validate message before any I/O
                 require(message.isNotBlank()) { "Message cannot be blank" }
 
-                // Convert string path to Path object
-                val path = Path(filePath)
+                // Convert string path to Path object and validate
+                val path = validateFilePath(filePath)
 
                 // Ensure parent directory exists (creates if needed)
                 path.parent?.let { parent ->
@@ -130,12 +137,22 @@ class FileOutputAdapter(
                 }
 
                 // Write message with system-appropriate line ending
-                Files.writeString(
-                    path,
-                    message + System.lineSeparator(),
-                    StandardOpenOption.CREATE, // Create if doesn't exist
-                    StandardOpenOption.APPEND, // Add to end of file
-                )
+                if (autoFlush) {
+                    Files.writeString(
+                        path,
+                        message + System.lineSeparator(),
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND,
+                        StandardOpenOption.SYNC, // Force flush to disk
+                    )
+                } else {
+                    Files.writeString(
+                        path,
+                        message + System.lineSeparator(),
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND,
+                    )
+                }
 
                 // Success!
                 Unit.right()
@@ -157,6 +174,64 @@ class FileOutputAdapter(
             }
         }
 }
+
+/**
+ * Validates and creates a Path object with security checks.
+ *
+ * ## Path Validation Rules
+ * 1. **Not blank**: Path cannot be empty or whitespace-only
+ * 2. **Length limit**: Prevents excessively long paths (DoS protection)
+ * 3. **Null bytes**: Prevents path injection attacks
+ * 4. **Reserved names**: Blocks OS-reserved filenames (Windows: CON, PRN, etc.)
+ * 5. **Traversal protection**: Prevents directory traversal with excessive '../'
+ *
+ * ## Security Considerations
+ * - Prevents path injection attacks
+ * - Blocks access to system files
+ * - Limits resource exhaustion via long paths
+ * - Cross-platform compatibility
+ *
+ * @param pathString The path string to validate
+ * @return Valid Path object
+ * @throws IllegalArgumentException if validation fails
+ */
+private fun validateFilePath(pathString: String): Path {
+    require(pathString.isNotBlank()) { "File path cannot be blank" }
+    require(pathString.length <= MAX_PATH_LENGTH) {
+        "File path too long: ${pathString.length} characters (max: $MAX_PATH_LENGTH)"
+    }
+    require(!pathString.contains('\u0000')) {
+        "File path contains null bytes"
+    }
+
+    // Check for excessive directory traversal
+    val traversalCount = pathString.split("/").count { it == ".." }
+    require(traversalCount <= MAX_DIRECTORY_TRAVERSAL) {
+        "Too many directory traversal sequences: $traversalCount (max: $MAX_DIRECTORY_TRAVERSAL)"
+    }
+
+    val path = Path(pathString)
+    val filename = path.fileName?.toString()
+
+    // Check for reserved filenames (Windows compatibility)
+    filename?.let { name ->
+        val baseName = name.substringBeforeLast('.')
+        require(!RESERVED_FILENAMES.contains(baseName.uppercase())) {
+            "Reserved filename not allowed: $baseName"
+        }
+    }
+
+    return path
+}
+
+// Constants for path validation
+private const val MAX_PATH_LENGTH = 4096
+private const val MAX_DIRECTORY_TRAVERSAL = 10
+private val RESERVED_FILENAMES = setOf(
+    "CON", "PRN", "AUX", "NUL",
+    "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+)
 
 /**
  * Async file reader utility for testing and verification.

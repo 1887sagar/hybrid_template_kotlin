@@ -9,13 +9,13 @@ package "Bootstrap Module" {
     }
     
     object AsyncApp {
-        + suspend runAsync(args: Array<String>): Int
-        + run(args: Array<String>): Int
+        + suspend runAsync(args: Array<String>, signals: SystemSignals, logger: BootstrapLogger): Int
+        + run(args: Array<String>, signals: SystemSignals, logger: BootstrapLogger): Int
         --
-        - installSignalHandlers()
-        - initiateShutdown()
-        - handleUncaughtException(e: Throwable)
-        - cleanup()
+        - initiateShutdown(logger: BootstrapLogger)
+        - handleUncaughtException(e: Throwable, logger: BootstrapLogger)
+        - handleProgramException(e: Exception, logger: BootstrapLogger) 
+        - cleanup(logger: BootstrapLogger)
     }
     
     object CompositionRoot {
@@ -31,20 +31,80 @@ package "Bootstrap Module" {
         - MAX_ARG_LENGTH: Int = 1000
         --
         + parseSecure(args: Array<String>): AppConfig
+        - processArguments(args: Array<String>, state: ParseState)
+        - processArgument(arg: String, args: Array<String>, index: Int, state: ParseState): Int
         - validateArgument(arg: String): String
         - validateOutputPath(path: String): String
         - validateName(name: String): String
     }
     
-    class AppConfig <<data class>> {
+    class ParseState <<data class>> {
         + verbose: Boolean = false
+        + quiet: Boolean = false
         + outputPath: String? = null
         + name: String? = null
+        + processedArgs: MutableSet<Int>
+    }
+    
+    class AppConfig <<data class>> {
+        + verbose: Boolean = false
+        + quiet: Boolean = false
+        + outputPath: String? = null
+        + name: String? = null
+    }
+    
+    interface SystemSignals {
+        + install(onShutdown: () -> Unit)
+    }
+    
+    class JvmSignals {
+        - useInternalSignalApi: Boolean = true
+        --
+        + install(onShutdown: () -> Unit)
+        - installSignalHandlers(onShutdown: () -> Unit)
+    }
+    
+    class NoOpSignals {
+        + install(onShutdown: () -> Unit)
+    }
+    
+    enum ExitCode {
+        SUCCESS(0)
+        ERROR(1)
+        MISUSE(2)
+        EX_USAGE(64)
+        EX_DATAERR(65)
+        ...
+        --
+        + code: Int
+        + fromThrowable(throwable: Throwable): ExitCode
+        + fromErrorType(errorType: String): ExitCode
+    }
+    
+    interface BootstrapLogger {
+        + info(message: String)
+        + error(message: String)
+        + error(message: String, throwable: Throwable)
+    }
+    
+    class ConsoleBootstrapLogger {
+        + info(message: String)
+        + error(message: String)  
+        + error(message: String, throwable: Throwable)
+    }
+    
+    class NoOpBootstrapLogger {
+        + info(message: String)
+        + error(message: String)
+        + error(message: String, throwable: Throwable)
     }
     
     class "parseArgs()" as ParseArgs <<(F,#FF7700) Function>> {
         + parseArgs(args: Array<String>): AppConfig
     }
+    
+    exception ShowHelpException
+    exception ShowVersionException
 
 package "All Layers" <<Cloud>> {
     package "Domain" {
@@ -80,6 +140,18 @@ CompositionRoot --> CreateGreetingUseCase : creates
 CompositionRoot --> AsyncCliRunner : creates
 CompositionRoot --> PresentationConfig : creates
 
+' New abstraction relationships
+AsyncApp --> SystemSignals : uses
+AsyncApp --> BootstrapLogger : uses
+AsyncApp --> ExitCode : maps exceptions to
+SystemSignals <|-- JvmSignals : implements
+SystemSignals <|-- NoOpSignals : implements
+BootstrapLogger <|-- ConsoleBootstrapLogger : implements
+BootstrapLogger <|-- NoOpBootstrapLogger : implements
+SecureArgParser --> ParseState : uses internally
+SecureArgParser ..> ShowHelpException : throws
+SecureArgParser ..> ShowVersionException : throws
+
 ' Return relationships
 SecureArgParser ..> AppConfig : returns
 CompositionRoot ..> Main : "returns exit code"
@@ -90,24 +162,51 @@ note right of Main
     Async Entry Points:
     - suspend main() for pure async
     - Regular main() for compatibility
-    - Handles system signals
-    - Graceful shutdown
+    - Uses SystemSignals abstraction
+    - Graceful shutdown with ExitCode
 end note
 
 note right of AsyncApp
-    Signal Handling:
-    - SIGTERM/SIGINT support
+    Enhanced Lifecycle Management:
+    - SystemSignals abstraction (testable)
+    - BootstrapLogger for structured logging
+    - ExitCode enum (Unix conventions)
     - 5-second grace period
-    - Structured concurrency
-    - Resource cleanup
+    - Structured concurrency cleanup
+end note
+
+note right of SystemSignals
+    Signal Abstraction:
+    - JvmSignals: Uses reflection for sun.misc.Signal
+    - NoOpSignals: For testing
+    - Graceful degradation
+    - Cross-platform compatible
+end note
+
+note right of ExitCode
+    Centralized Exit Codes:
+    - Follows Unix conventions
+    - Maps exceptions to codes
+    - Maps domain errors to codes
+    - Consistent across application
 end note
 
 note right of SecureArgParser
-    Security Features:
-    - Input validation
-    - Path traversal prevention
+    Enhanced Security & Features:
+    - Input validation & sanitization
+    - Path traversal prevention  
     - Command injection protection
-    - Length limits
+    - Length limits (DoS prevention)
+    - --version and --quiet flags
+    - Reduced cyclomatic complexity
+end note
+
+note right of BootstrapLogger
+    Structured Logging:
+    - ConsoleBootstrapLogger: Outputs to console
+    - NoOpBootstrapLogger: For testing
+    - Replaces raw println usage
+    - Consistent message formatting
 end note
 
 note right of CompositionRoot
@@ -115,7 +214,7 @@ note right of CompositionRoot
     - All wiring in one place
     - Manual DI (no framework)
     - Async-first design
-    - Returns exit code
+    - Returns standardized exit codes
 end note
 
 note bottom of "All Layers"

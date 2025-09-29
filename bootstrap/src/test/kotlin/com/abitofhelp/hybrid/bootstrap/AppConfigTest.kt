@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template - Test Suite
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.bootstrap
 
@@ -305,28 +305,28 @@ class AppConfigTest : DescribeSpec({
 
         describe("data class features") {
             it("should have correct toString") {
-                val config = AppConfig(true, "out.txt", "User")
-                config.toString() shouldBe "AppConfig(verbose=true, outputPath=out.txt, name=User)"
+                val config = AppConfig(verbose = true, outputPath = "out.txt", name = "User")
+                config.toString() shouldBe "AppConfig(verbose=true, quiet=false, outputPath=out.txt, name=User)"
             }
 
             it("should have correct equals") {
-                val config1 = AppConfig(true, "out.txt", "User")
-                val config2 = AppConfig(true, "out.txt", "User")
-                val config3 = AppConfig(false, "out.txt", "User")
+                val config1 = AppConfig(verbose = true, outputPath = "out.txt", name = "User")
+                val config2 = AppConfig(verbose = true, outputPath = "out.txt", name = "User")
+                val config3 = AppConfig(verbose = false, outputPath = "out.txt", name = "User")
 
                 config1 shouldBe config2
                 config1 shouldNotBe config3
             }
 
             it("should have correct hashCode") {
-                val config1 = AppConfig(true, "out.txt", "User")
-                val config2 = AppConfig(true, "out.txt", "User")
+                val config1 = AppConfig(verbose = true, outputPath = "out.txt", name = "User")
+                val config2 = AppConfig(verbose = true, outputPath = "out.txt", name = "User")
 
                 config1.hashCode() shouldBe config2.hashCode()
             }
 
             it("should support copy") {
-                val original = AppConfig(false, "original.txt", "Original")
+                val original = AppConfig(verbose = false, outputPath = "original.txt", name = "Original")
                 val copy = original.copy(verbose = true)
 
                 copy.verbose shouldBe true

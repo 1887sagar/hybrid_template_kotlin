@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template - Test Suite
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.infrastructure.adapter.output
 
@@ -65,7 +65,7 @@ import java.io.PrintStream
  *
  * ## Output Stream Testing Patterns
  * The tests use a sophisticated approach to capture and verify console output:
- * 
+ *
  * 1. **ByteArrayOutputStream**: Captures actual bytes written to console
  * 2. **PrintStream Wrapping**: Redirects console output to test-controlled stream
  * 3. **Content Verification**: Validates exact content written to console
@@ -74,7 +74,7 @@ import java.io.PrintStream
  *
  * ## Error Handling Validation
  * The adapter implements robust error handling that's thoroughly tested:
- * 
+ *
  * - **Input Validation**: Messages are validated before attempting console write
  * - **Exception Wrapping**: Console exceptions become ApplicationError.OutputError
  * - **Error Context**: Error messages provide meaningful context for debugging

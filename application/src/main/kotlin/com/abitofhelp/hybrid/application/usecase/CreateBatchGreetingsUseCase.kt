@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.application.usecase
 
@@ -52,7 +52,7 @@ import kotlinx.coroutines.flow.*
  *     // Process and show progress
  *     suspend fun greetMultipleUsers(names: List<String>) {
  *         val commands = names.map { CreateGreetingCommand(it) }
- *         
+ *
  *         batchUseCase.executeBatch(commands)
  *             .collect { result ->
  *                 result.fold(
@@ -66,7 +66,7 @@ import kotlinx.coroutines.flow.*
  *     suspend fun greetUsersWithReport(names: List<String>): String {
  *         val commands = names.map { CreateGreetingCommand(it) }
  *         val result = batchUseCase.executeBatchWithStats(commands)
- *         
+ *
  *         return """
  *             Batch Complete:
  *             - Total: ${result.totalProcessed}
@@ -109,23 +109,23 @@ class CreateBatchGreetingsUseCase(
      * // Process 100 users and show progress
      * val commands = users.map { CreateGreetingCommand(it.name) }
      * var completed = 0
-     * 
+     *
      * batchUseCase.executeBatch(commands)
      *     .collect { result ->
      *         completed++
      *         result.fold(
-     *             { error -> 
+     *             { error ->
      *                 println("❌ Error: ${error.message}")
      *             },
-     *             { greeting -> 
+     *             { greeting ->
      *                 println("✅ ${greeting.greeting}")
      *             }
      *         )
-     *         
+     *
      *         // Update progress bar
      *         progressBar.update(completed, commands.size)
      *     }
-     * 
+     *
      * println("All greetings processed!")
      * ```
      *
@@ -169,7 +169,7 @@ class CreateBatchGreetingsUseCase(
      *     private val batchUseCase: CreateBatchGreetingsUseCase
      * ) {
      *     private val commandChannel = Channel<CreateGreetingCommand>(capacity = 100)
-     *     
+     *
      *     suspend fun startProcessing() {
      *         batchUseCase.executeStream(commandChannel)
      *             .collect { result ->
@@ -179,7 +179,7 @@ class CreateBatchGreetingsUseCase(
      *                 )
      *             }
      *     }
-     *     
+     *
      *     fun handleWebSocketMessage(message: String) {
      *         val command = CreateGreetingCommand(message)
      *         commandChannel.trySend(command)
@@ -189,7 +189,7 @@ class CreateBatchGreetingsUseCase(
      * // File processing example
      * suspend fun processGreetingFile(file: File) {
      *     val commandChannel = Channel<CreateGreetingCommand>()
-     *     
+     *
      *     // Producer: Read file and send commands
      *     launch {
      *         file.forEachLine { line ->
@@ -198,7 +198,7 @@ class CreateBatchGreetingsUseCase(
      *         }
      *         commandChannel.close()
      *     }
-     *     
+     *
      *     // Consumer: Process commands and collect results
      *     batchUseCase.executeStream(commandChannel)
      *         .collect { result ->
@@ -268,7 +268,7 @@ class CreateBatchGreetingsUseCase(
      * suspend fun sendWelcomeEmails(newUsers: List<User>): EmailReport {
      *     val commands = newUsers.map { CreateGreetingCommand(it.name) }
      *     val result = batchUseCase.executeBatchWithStats(commands)
-     *     
+     *
      *     // Generate detailed report
      *     val report = EmailReport(
      *         totalUsers = result.totalProcessed,
@@ -277,13 +277,13 @@ class CreateBatchGreetingsUseCase(
      *         duration = "${result.processingTimeMs}ms",
      *         averageTimePerEmail = "${result.averageTimePerGreeting}ms"
      *     )
-     *     
+     *
      *     // Log any failures for investigation
      *     result.results.filterIsInstance<Either.Left<ApplicationError>>()
      *         .forEach { error ->
      *             logger.warn("Email failed: ${error.value}")
      *         }
-     *     
+     *
      *     return report
      * }
      *
@@ -291,13 +291,13 @@ class CreateBatchGreetingsUseCase(
      * suspend fun dailyGreetingJob() {
      *     val commands = getUsersForDailyGreeting()
      *     val result = batchUseCase.executeBatchWithStats(commands)
-     *     
+     *
      *     // Send metrics to monitoring system
      *     metrics.gauge("daily_greetings.total", result.totalProcessed)
      *     metrics.gauge("daily_greetings.successful", result.successful)
      *     metrics.gauge("daily_greetings.failed", result.failed)
      *     metrics.timer("daily_greetings.duration", result.processingTimeMs)
-     *     
+     *
      *     // Alert if failure rate is too high
      *     val failureRate = result.failed.toDouble() / result.totalProcessed
      *     if (failureRate > 0.1) {  // More than 10% failed
@@ -386,7 +386,7 @@ class CreateBatchGreetingsUseCase(
      * ) {
      *     suspend fun createResilientGreeting(name: String): GreetingResult? {
      *         val command = CreateGreetingCommand(name)
-     *         
+     *
      *         return batchUseCase.executeWithRetry(
      *             command = command,
      *             maxRetries = 5,
@@ -474,7 +474,7 @@ class CreateBatchGreetingsUseCase(
  * suspend fun generateDailyReport(): DailyReport {
  *     val commands = getDailyGreetingTasks()
  *     val batchResult = batchUseCase.executeBatchWithStats(commands)
- *     
+ *
  *     return DailyReport(
  *         date = LocalDate.now(),
  *         summary = """
@@ -499,7 +499,7 @@ class CreateBatchGreetingsUseCase(
  *     metrics.gauge("batch_greetings.failed", result.failed)
  *     metrics.timer("batch_greetings.duration", result.processingTimeMs)
  *     metrics.gauge("batch_greetings.avg_time", result.averageTimePerGreeting)
- *     
+ *
  *     // Alert on high failure rates
  *     if (result.successRate < 95.0) {
  *         alerting.sendAlert(
@@ -507,7 +507,7 @@ class CreateBatchGreetingsUseCase(
  *             message = "Batch greeting success rate below threshold: ${result.successRate}%"
  *         )
  *     }
- *     
+ *
  *     // Alert on slow performance
  *     if (result.averageTimePerGreeting > 500) { // More than 500ms per greeting
  *         alerting.sendAlert(
@@ -533,27 +533,31 @@ data class BatchGreetingResult(
 ) {
     /**
      * Average processing time per greeting in milliseconds.
-     * 
+     *
      * Calculated as total processing time divided by number of items.
      * Returns 0.0 if no items were processed (avoids division by zero).
      */
     val averageTimePerGreeting: Double =
         if (totalProcessed > 0) processingTimeMs.toDouble() / totalProcessed else 0.0
-    
+
     /**
      * Success rate as a percentage (0.0 to 100.0).
-     * 
+     *
      * Calculated as (successful / total) * 100.
      * Returns 0.0 if no items were processed.
      */
     val successRate: Double =
-        if (totalProcessed > 0) (successful.toDouble() / totalProcessed) * 100.0 else 0.0
-    
+        if (totalProcessed > 0) (successful.toDouble() / totalProcessed) * PERCENTAGE_MULTIPLIER else 0.0
+
+    companion object {
+        private const val PERCENTAGE_MULTIPLIER = 100.0
+    }
+
     /**
      * Gets all the errors from failed greeting attempts.
-     * 
+     *
      * Useful for error analysis and debugging batch failures.
-     * 
+     *
      * @return List of ApplicationErrors from failed attempts
      */
     fun getErrors(): List<ApplicationError> =
@@ -563,12 +567,12 @@ data class BatchGreetingResult(
                 is Either.Right -> null
             }
         }
-    
+
     /**
      * Gets all successful greeting results.
-     * 
+     *
      * Useful when you need to process or display the successful outcomes.
-     * 
+     *
      * @return List of GreetingResults from successful attempts
      */
     fun getSuccessfulResults(): List<GreetingResult> =

@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.presentation.cli
 
@@ -50,7 +50,7 @@ private const val EXIT_CODE_BATCH_VALIDATION_ERROR = 5
  * // Async approach - efficient thread usage
  * suspend fun asyncCli() {
  *     outputPort.send("Starting...")    // Suspends, doesn't block
- *     writeFileAsync("data.txt")        // Suspends, doesn't block  
+ *     writeFileAsync("data.txt")        // Suspends, doesn't block
  *     outputPort.send("Done!")          // Suspends, doesn't block
  * }
  * ```
@@ -93,33 +93,33 @@ private const val EXIT_CODE_BATCH_VALIDATION_ERROR = 5
  *         outputPath = null,  // Console only
  *         name = "Alice"
  *     )
- *     
+ *
  *     val cli = PureAsyncCli(
  *         config = config,
  *         createGreeting = greetingUseCase,
  *         outputPort = consoleOutputAdapter,
  *         errorOutputPort = stderrOutputAdapter
  *     )
- *     
+ *
  *     val exitCode = cli.execute()
  *     exitProcess(exitCode)
  * }
- * 
+ *
  * // For testing
  * @Test
  * fun `should handle user input correctly`() = runTest {
  *     val mockOutput = MockOutputPort()
  *     val mockErrorOutput = MockErrorOutputPort()
- *     
+ *
  *     val cli = PureAsyncCli(
  *         config = testConfig,
  *         createGreeting = mockUseCase,
  *         outputPort = mockOutput,
  *         errorOutputPort = mockErrorOutput
  *     )
- *     
+ *
  *     val exitCode = cli.execute()
- *     
+ *
  *     assertEquals(0, exitCode)
  *     assertTrue(mockOutput.messages.isNotEmpty())
  * }
@@ -157,7 +157,7 @@ class PureAsyncCli(
      * ## Error vs Exception Handling
      * This function uses Arrow's Either type for expected errors (business logic failures)
      * but relies on Kotlin's exception system for unexpected errors (programming bugs).
-     * 
+     *
      * Expected errors (handled via Either):
      * - Invalid user input
      * - File permission issues
@@ -176,7 +176,7 @@ class PureAsyncCli(
      *     outputPath = null,
      *     name = "Alice"
      * )
-     * 
+     *
      * val exitCode = cli.execute()  // This function
      * // -> Creates CreateGreetingCommand(name="Alice", silent=false)
      * // -> Calls createGreeting.execute(command)
@@ -295,7 +295,7 @@ class PureAsyncCli(
  * // Without factory - multiple steps, easy to forget execute()
  * val cli = PureAsyncCli(config, useCase, output, errorOutput)
  * val exitCode = cli.execute()  // Easy to forget this step
- * 
+ *
  * // With factory - one step, impossible to forget
  * val exitCode = createAndRunCli(config, useCase, output, errorOutput)
  * ```
@@ -317,14 +317,14 @@ class PureAsyncCli(
  * suspend fun main() {
  *     val config = parseCommandLineArgs(args)
  *     val dependencies = setupDependencies()
- *     
+ *
  *     val exitCode = createAndRunCli(
  *         config = config,
  *         createGreeting = dependencies.greetingUseCase,
  *         outputPort = dependencies.consoleOutput,
  *         errorOutputPort = dependencies.errorOutput
  *     )
- *     
+ *
  *     exitProcess(exitCode)
  * }
  * ```

@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template - Test Suite
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.architecture
 
@@ -64,52 +64,52 @@ object ArchitectureConstants {
     const val BASE_PACKAGE = "com.abitofhelp.hybrid"
 
     // Layer packages - Primary architectural boundaries
-    const val DOMAIN_PACKAGE = "$BASE_PACKAGE.domain"              // Core business logic (no dependencies)
-    const val APPLICATION_PACKAGE = "$BASE_PACKAGE.application"      // Use cases and application services
+    const val DOMAIN_PACKAGE = "$BASE_PACKAGE.domain" // Core business logic (no dependencies)
+    const val APPLICATION_PACKAGE = "$BASE_PACKAGE.application" // Use cases and application services
     const val INFRASTRUCTURE_PACKAGE = "$BASE_PACKAGE.infrastructure" // Technical implementations and adapters
-    const val PRESENTATION_PACKAGE = "$BASE_PACKAGE.presentation"    // User interface and external API layers
-    const val BOOTSTRAP_PACKAGE = "$BASE_PACKAGE.bootstrap"          // Application startup and dependency wiring
+    const val PRESENTATION_PACKAGE = "$BASE_PACKAGE.presentation" // User interface and external API layers
+    const val BOOTSTRAP_PACKAGE = "$BASE_PACKAGE.bootstrap" // Application startup and dependency wiring
 
     // Domain layer sub-packages - Core business concepts
-    const val DOMAIN_VALUE_OBJECTS = "$DOMAIN_PACKAGE.value_object"  // Immutable value types (PersonName, Money)
-    const val DOMAIN_ENTITIES = "$DOMAIN_PACKAGE.entity"            // Business entities with identity (Order, Customer)
-    const val DOMAIN_AGGREGATES = "$DOMAIN_PACKAGE.aggregate"       // Consistency boundaries (OrderAggregate)
-    const val DOMAIN_SERVICES = "$DOMAIN_PACKAGE.service"           // Domain logic that doesn't fit in entities
-    const val DOMAIN_REPOSITORIES = "$DOMAIN_PACKAGE.repository"     // Data access interfaces (defined by domain)
-    const val DOMAIN_ERRORS = "$DOMAIN_PACKAGE.error"               // Domain-specific error types
-    const val DOMAIN_EVENTS = "$DOMAIN_PACKAGE.event"               // Domain events for communication
-    const val DOMAIN_POLICIES = "$DOMAIN_PACKAGE.policy"            // Business rules and decision logic
+    const val DOMAIN_VALUE_OBJECTS = "$DOMAIN_PACKAGE.value_object" // Immutable value types (PersonName, Money)
+    const val DOMAIN_ENTITIES = "$DOMAIN_PACKAGE.entity" // Business entities with identity (Order, Customer)
+    const val DOMAIN_AGGREGATES = "$DOMAIN_PACKAGE.aggregate" // Consistency boundaries (OrderAggregate)
+    const val DOMAIN_SERVICES = "$DOMAIN_PACKAGE.service" // Domain logic that doesn't fit in entities
+    const val DOMAIN_REPOSITORIES = "$DOMAIN_PACKAGE.repository" // Data access interfaces (defined by domain)
+    const val DOMAIN_ERRORS = "$DOMAIN_PACKAGE.error" // Domain-specific error types
+    const val DOMAIN_EVENTS = "$DOMAIN_PACKAGE.event" // Domain events for communication
+    const val DOMAIN_POLICIES = "$DOMAIN_PACKAGE.policy" // Business rules and decision logic
 
     // Application layer sub-packages - Use cases and orchestration
-    const val APPLICATION_USE_CASES = "$APPLICATION_PACKAGE.usecase"        // Use case implementations (business workflows)
-    const val APPLICATION_PORTS = "$APPLICATION_PACKAGE.port"              // All port interfaces (input + output)
-    const val APPLICATION_INPUT_PORTS = "$APPLICATION_PACKAGE.port.input"   // Driving ports (what app can do)
+    const val APPLICATION_USE_CASES = "$APPLICATION_PACKAGE.usecase" // Use case implementations (business workflows)
+    const val APPLICATION_PORTS = "$APPLICATION_PACKAGE.port" // All port interfaces (input + output)
+    const val APPLICATION_INPUT_PORTS = "$APPLICATION_PACKAGE.port.input" // Driving ports (what app can do)
     const val APPLICATION_OUTPUT_PORTS = "$APPLICATION_PACKAGE.port.output" // Driven ports (what app needs)
-    const val APPLICATION_SERVICES = "$APPLICATION_PACKAGE.service"         // Application-specific services
-    const val APPLICATION_ERRORS = "$APPLICATION_PACKAGE.error"            // Application-layer error types
-    const val APPLICATION_DTOs = "$APPLICATION_PACKAGE.dto"                // Data transfer objects for external communication
+    const val APPLICATION_SERVICES = "$APPLICATION_PACKAGE.service" // Application-specific services
+    const val APPLICATION_ERRORS = "$APPLICATION_PACKAGE.error" // Application-layer error types
+    const val APPLICATION_DTOs = "$APPLICATION_PACKAGE.dto" // Data transfer objects for external communication
 
     // Infrastructure layer sub-packages - Technical implementations
-    const val INFRASTRUCTURE_ADAPTERS = "$INFRASTRUCTURE_PACKAGE.adapter"        // All adapter implementations
+    const val INFRASTRUCTURE_ADAPTERS = "$INFRASTRUCTURE_PACKAGE.adapter" // All adapter implementations
     const val INFRASTRUCTURE_OUTPUT_ADAPTERS = "$INFRASTRUCTURE_PACKAGE.adapter.output" // Output port implementations
-    const val INFRASTRUCTURE_SERVICES = "$INFRASTRUCTURE_PACKAGE.service"       // Infrastructure service implementations
+    const val INFRASTRUCTURE_SERVICES = "$INFRASTRUCTURE_PACKAGE.service" // Infrastructure service implementations
 
     // Presentation layer sub-packages - User interfaces
-    const val PRESENTATION_CLI = "$PRESENTATION_PACKAGE.cli"          // Command-line interface components
+    const val PRESENTATION_CLI = "$PRESENTATION_PACKAGE.cli" // Command-line interface components
     const val PRESENTATION_COMMANDS = "$PRESENTATION_PACKAGE.cli.commands" // CLI command implementations
 
     // Test packages to exclude from architecture analysis
     val TEST_PACKAGES = setOf(
-        "..test..",      // Standard test packages
-        "..tests..",     // Alternative test naming
-        "..testing..",   // Testing utility packages
-        "..mock..",      // Mock object packages
-        "..fixture..",   // Test fixture packages
+        "..test..", // Standard test packages
+        "..tests..", // Alternative test naming
+        "..testing..", // Testing utility packages
+        "..mock..", // Mock object packages
+        "..fixture..", // Test fixture packages
     )
 
     // Generated code to exclude from architecture analysis
     val GENERATED_PACKAGES = setOf(
         "..generated..", // Code generated by annotation processors
-        "..build..",     // Build tool generated classes
+        "..build..", // Build tool generated classes
     )
 }

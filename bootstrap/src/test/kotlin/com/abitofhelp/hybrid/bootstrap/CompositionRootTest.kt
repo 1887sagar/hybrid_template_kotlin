@@ -1,20 +1,20 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template - Test Suite
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.bootstrap
 
-import arrow.core.right
 import arrow.core.left
+import arrow.core.right
 import com.abitofhelp.hybrid.application.error.ApplicationError
 import com.abitofhelp.hybrid.application.port.output.ErrorOutputPort
 import com.abitofhelp.hybrid.application.port.output.OutputPort
 import io.kotest.core.spec.style.DescribeSpec
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldNotBeSameInstanceAs
 import kotlinx.coroutines.test.runTest
 
@@ -128,7 +128,7 @@ class CompositionRootTest : DescribeSpec({
                     val exitCode = CompositionRoot.buildAndRunAsyncForTesting(
                         cfg = config,
                         outputPort = outputCollector,
-                        errorOutputPort = errorCollector
+                        errorOutputPort = errorCollector,
                     )
 
                     // Then
@@ -149,7 +149,7 @@ class CompositionRootTest : DescribeSpec({
                     val exitCode = CompositionRoot.buildAndRunAsyncForTesting(
                         cfg = config,
                         outputPort = outputCollector,
-                        errorOutputPort = errorCollector
+                        errorOutputPort = errorCollector,
                     )
 
                     // Then
@@ -170,7 +170,7 @@ class CompositionRootTest : DescribeSpec({
                     val exitCode = CompositionRoot.buildAndRunAsyncForTesting(
                         cfg = config,
                         outputPort = outputCollector,
-                        errorOutputPort = errorCollector
+                        errorOutputPort = errorCollector,
                     )
 
                     // Then
@@ -191,7 +191,7 @@ class CompositionRootTest : DescribeSpec({
                     val exitCode = CompositionRoot.buildAndRunAsyncForTesting(
                         cfg = config,
                         outputPort = outputCollector,
-                        errorOutputPort = errorCollector
+                        errorOutputPort = errorCollector,
                     )
 
                     // Then
@@ -209,7 +209,7 @@ class CompositionRootTest : DescribeSpec({
                     // Given
                     val config1 = AppConfig(name = "UserOne")
                     val config2 = AppConfig(name = "UserTwo")
-                    
+
                     val outputCollector1 = TestOutputAdapter()
                     val errorCollector1 = TestErrorOutputAdapter()
                     val outputCollector2 = TestOutputAdapter()
@@ -219,12 +219,12 @@ class CompositionRootTest : DescribeSpec({
                     val exitCode1 = CompositionRoot.buildAndRunAsyncForTesting(
                         cfg = config1,
                         outputPort = outputCollector1,
-                        errorOutputPort = errorCollector1
+                        errorOutputPort = errorCollector1,
                     )
                     val exitCode2 = CompositionRoot.buildAndRunAsyncForTesting(
                         cfg = config2,
                         outputPort = outputCollector2,
-                        errorOutputPort = errorCollector2
+                        errorOutputPort = errorCollector2,
                     )
 
                     // Then
@@ -258,7 +258,7 @@ class CompositionRootTest : DescribeSpec({
                     val tempFile = kotlin.io.path.createTempFile("test", ".txt")
                     val config = AppConfig(
                         name = "File User",
-                        outputPath = tempFile.toString()
+                        outputPath = tempFile.toString(),
                     )
 
                     // When
@@ -266,7 +266,7 @@ class CompositionRootTest : DescribeSpec({
 
                     // Then
                     exitCode shouldBe 0
-                    
+
                     // Clean up
                     tempFile.toFile().delete()
                 }

@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template - Test Suite
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.infrastructure.adapter.output
 
@@ -65,7 +65,7 @@ import kotlinx.coroutines.test.runTest
  *
  * ## Error Handling Patterns
  * The CompositeOutputAdapter implements sophisticated error handling:
- * 
+ *
  * 1. **Error Isolation**: Each output's success/failure is independent
  * 2. **Concurrent Execution**: All outputs attempted simultaneously for performance
  * 3. **Error Aggregation**: Failed outputs are identified with their specific errors

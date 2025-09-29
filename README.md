@@ -36,6 +36,13 @@ cd kotlin-hybrid-architecture-template
 
 # Run the application
 ./gradlew :bootstrap:run --args="YourName"
+
+# Additional CLI options
+./gradlew :bootstrap:run --args="--help"                    # Show help
+./gradlew :bootstrap:run --args="--version"                 # Show version
+./gradlew :bootstrap:run --args="--quiet YourName"          # Quiet mode
+./gradlew :bootstrap:run --args="--verbose YourName"        # Verbose output
+./gradlew :bootstrap:run --args="--out=output.txt YourName" # File output
 ```
 
 ## Architecture Overview
@@ -144,7 +151,7 @@ Before you begin, ensure you have:
 
 Let's trace a simple request through the architecture:
 
-1. **User Input**: User runs `./gradlew :bootstrap:run --args="Alice"`
+1. **User Input**: User runs `./gradlew :bootstrap:run --args="Alice"` (or with options like `--verbose`, `--quiet`, `--version`)
 2. **Bootstrap**: The bootstrap module starts the application
 3. **Presentation**: CLI parses the command and creates a request
 4. **Application**: Use case orchestrates the business logic

@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.presentation.cli
 
@@ -28,13 +28,13 @@ package com.abitofhelp.hybrid.presentation.cli
  * ## Comparison with Java Runnable
  * ```kotlin
  * // Java Runnable (external dependency)
- * val javaRunnable = java.lang.Runnable { 
- *     println("Running task") 
+ * val javaRunnable = java.lang.Runnable {
+ *     println("Running task")
  * }
- * 
+ *
  * // Our Runnable (self-contained)
- * val ourRunnable = Runnable { 
- *     println("Running task") 
+ * val ourRunnable = Runnable {
+ *     println("Running task")
  * }
  * ```
  *
@@ -50,10 +50,10 @@ package com.abitofhelp.hybrid.presentation.cli
  * For modern async code, prefer suspend functions instead:
  * ```kotlin
  * // Old style - blocks thread
- * val runnable = Runnable { 
- *     blockingOperation() 
+ * val runnable = Runnable {
+ *     blockingOperation()
  * }
- * 
+ *
  * // Modern style - suspends without blocking
  * suspend fun asyncOperation() {
  *     suspendingOperation()
@@ -63,28 +63,28 @@ package com.abitofhelp.hybrid.presentation.cli
  * ## Example Usage
  * ```kotlin
  * // Lambda expression
- * val task1 = Runnable { 
- *     println("Task 1 executing") 
+ * val task1 = Runnable {
+ *     println("Task 1 executing")
  * }
- * 
+ *
  * // Method reference (if you have a matching function)
- * fun doSomething() { 
- *     println("Doing something") 
+ * fun doSomething() {
+ *     println("Doing something")
  * }
  * val task2 = Runnable(::doSomething)
- * 
+ *
  * // Anonymous implementation
  * val task3 = object : Runnable {
  *     override fun run() {
  *         println("Task 3 executing")
  *     }
  * }
- * 
+ *
  * // Execute in thread
  * val thread = Thread(task1)
  * thread.start()
  * thread.join()
- * 
+ *
  * // Execute directly
  * task1.run()
  * ```

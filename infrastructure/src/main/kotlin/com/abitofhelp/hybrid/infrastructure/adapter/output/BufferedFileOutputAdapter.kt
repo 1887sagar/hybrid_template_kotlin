@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.infrastructure.adapter.output
 
@@ -82,6 +82,7 @@ import kotlin.io.path.exists
  * @property bufferSize Size of the write buffer in bytes (default: 8KB)
  * @property flushIntervalMs Maximum time between flushes in milliseconds (default: 1 second)
  * @property maxQueueSize Maximum number of messages to queue (default: 10000)
+ * @property autoFlush Whether to flush immediately after each message (overrides buffering)
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class BufferedFileOutputAdapter(
@@ -89,6 +90,7 @@ class BufferedFileOutputAdapter(
     private val bufferSize: Int = 8192,
     private val flushIntervalMs: Long = 1000,
     private val maxQueueSize: Int = 10000,
+    private val autoFlush: Boolean = false,
 ) : OutputPort, AutoCloseable {
 
     /**
@@ -235,7 +237,8 @@ class BufferedFileOutputAdapter(
             buffer.append(message)
             buffer.append(System.lineSeparator())
 
-            val shouldFlush = buffer.length >= bufferSize ||
+            val shouldFlush = autoFlush ||
+                buffer.length >= bufferSize ||
                 (currentTime - lastFlush) >= flushIntervalMs
 
             if (shouldFlush) {
@@ -411,6 +414,7 @@ class BufferedFileOutputAdapter(
          * - Large buffer (64KB)
          * - Longer flush interval (5 seconds)
          * - Large queue (50K messages)
+         * - AutoFlush disabled for maximum throughput
          *
          * @param filePath The output file path
          * @return Configured adapter
@@ -420,6 +424,7 @@ class BufferedFileOutputAdapter(
             bufferSize = 65536, // 64KB
             flushIntervalMs = 5000, // 5 seconds
             maxQueueSize = 50000,
+            autoFlush = false, // Maximize throughput
         )
 
         /**
@@ -429,6 +434,7 @@ class BufferedFileOutputAdapter(
          * - Small buffer (1KB)
          * - Short flush interval (100ms)
          * - Small queue (1K messages)
+         * - AutoFlush enabled for immediate persistence
          *
          * @param filePath The output file path
          * @return Configured adapter
@@ -438,6 +444,7 @@ class BufferedFileOutputAdapter(
             bufferSize = 1024, // 1KB
             flushIntervalMs = 100, // 100ms
             maxQueueSize = 1000,
+            autoFlush = true, // Immediate persistence
         )
     }
 }

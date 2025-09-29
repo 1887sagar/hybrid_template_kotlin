@@ -1,31 +1,18 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.bootstrap
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.selects.select
-import sun.misc.Signal
-import sun.misc.SignalHandler
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.system.exitProcess
-
-// --- Extracted constants to satisfy detekt MagicNumber and improve clarity ---
-private const val EXIT_CODE_SUCCESS = 0
-private const val EXIT_CODE_GENERAL_ERROR = 1
-private const val EXIT_CODE_UNCAUGHT_EXCEPTION = 2
-private const val EXIT_CODE_STATE_ERROR = 3
-private const val EXIT_CODE_ARGUMENT_ERROR = 4
-private const val EXIT_CODE_PERMISSION = 126
-private const val EXIT_CODE_ABORT = 134
-private const val EXIT_CODE_SIGINT = 130
-private const val EXIT_CODE_SIGKILL = 137
 
 private const val CLEANUP_JOIN_TIMEOUT_MILLIS = 2000L
 private const val SHUTDOWN_GRACE_PERIOD_MILLIS = 5000L
@@ -53,7 +40,8 @@ private const val SHUTDOWN_LATCH_COUNT = 1
  * - Proper lifecycle management for long-running operations
  *
  * ## Signal Handling
- * This app handles Unix signals for graceful shutdown:
+ * This app handles Unix signals for graceful shutdown through the SystemSignals
+ * abstraction, avoiding direct dependencies on internal JVM APIs:
  * - **SIGTERM (15)**: Sent by system during shutdown (`kill <pid>`)
  * - **SIGINT (2)**: Sent when user presses Ctrl+C (`^C`)
  * - **SIGHUP (1)**: Terminal disconnected (Unix only)
@@ -66,17 +54,9 @@ private const val SHUTDOWN_LATCH_COUNT = 1
  * 4. Forces shutdown if grace period expires
  * 5. Cleans up resources and exits with appropriate code
  *
- * ## Exit Codes Following Unix Conventions
- * ```
- * 0   : Success (everything worked)
- * 1   : General error (something went wrong)
- * 2   : Uncaught exception (programmer error)
- * 3-4 : Invalid state/arguments (configuration issue)
- * 126 : Permission denied (security/filesystem issue)
- * 130 : Interrupted (Ctrl+C or SIGINT)
- * 134 : Abort (stack overflow, assert failed)
- * 137 : Killed (out of memory, SIGKILL)
- * ```
+ * ## Exit Codes
+ * Uses centralized ExitCode enum following Unix conventions.
+ * See ExitCode documentation for complete list.
  *
  * ## Coroutine Architecture
  * - **SupervisorJob**: Isolates failures (one coroutine failing doesn't kill others)
@@ -92,10 +72,10 @@ private const val SHUTDOWN_LATCH_COUNT = 1
  *     exitProcess(exitCode)
  * }
  *
- * // Or in tests
+ * // Or in tests with no-op signals
  * @Test
  * fun testAsyncApp() = runTest {
- *     val result = AsyncApp.runAsync(arrayOf("--verbose", "TestUser"))
+ *     val result = AsyncApp.runAsync(arrayOf("--verbose", "TestUser"), NoOpSignals())
  *     assertEquals(0, result)
  * }
  * ```
@@ -119,7 +99,7 @@ object AsyncApp {
      * Stores the final exit code to return to the OS.
      * Atomic to handle concurrent updates from different error paths.
      */
-    private val exitCode = AtomicInteger(EXIT_CODE_SUCCESS)
+    private val exitCode = AtomicReference(ExitCode.SUCCESS)
 
     /**
      * Reference to the cleanup timeout job.
@@ -136,12 +116,13 @@ object AsyncApp {
      * - **CoroutineExceptionHandler**: Last resort for uncaught exceptions
      *
      * This scope lives for the entire application lifetime.
+     * Initialized with a no-op logger, but gets properly replaced in runAsync.
      */
     private var appScope = CoroutineScope(
         Dispatchers.Default +
             SupervisorJob() +
             CoroutineExceptionHandler { _, exception ->
-                handleUncaughtException(exception)
+                handleUncaughtException(exception, NoOpBootstrapLogger())
             },
     )
 
@@ -163,30 +144,32 @@ object AsyncApp {
      * - Ensures structured concurrency
      *
      * ## Error Handling Strategy
-     * Different exceptions get different exit codes:
-     * - Configuration errors: Exit quickly with code 1
-     * - Security violations: Exit with code 126 (permission denied)
-     * - Uncaught exceptions: Exit with code 2
-     * - Cancellation: Exit with code 130 (interrupted)
+     * Uses ExitCode enum for standardized exit codes and error mapping.
      *
      * @param args Command-line arguments
+     * @param signals Signal handler implementation (defaults to JvmSignals)
+     * @param logger Optional logger for lifecycle messages (defaults to console)
      * @return Exit code for the OS
      */
-    suspend fun runAsync(args: Array<String>): Int = coroutineScope {
+    suspend fun runAsync(
+        args: Array<String>,
+        signals: SystemSignals = JvmSignals(),
+        logger: BootstrapLogger = ConsoleBootstrapLogger(),
+    ): Int = coroutineScope {
         // Re-initialize per-run state
         isShuttingDown.set(false)
-        exitCode.set(EXIT_CODE_SUCCESS)
+        exitCode.set(ExitCode.SUCCESS)
         appScope = CoroutineScope(
             Dispatchers.Default +
                 SupervisorJob() +
                 CoroutineExceptionHandler { _, exception ->
-                    handleUncaughtException(exception)
+                    handleUncaughtException(exception, logger)
                 },
         )
 
         try {
             // Step 1: Install signal handlers for graceful shutdown
-            installSignalHandlers()
+            signals.install { initiateShutdown(logger) }
 
             // Step 2: Parse configuration with security validation
             // This might throw IllegalArgumentException for invalid args
@@ -197,14 +180,14 @@ object AsyncApp {
                 try {
                     // Build dependency graph and run the application
                     val result = CompositionRoot.buildAndRunAsync(cfg)
-                    exitCode.set(result)
+                    exitCode.set(if (result == 0) ExitCode.SUCCESS else ExitCode.ERROR)
                 } catch (e: CancellationException) {
                     // Normal cancellation during shutdown - log minimal info to avoid swallowing
-                    println("Program cancelled gracefully: ${e.message ?: "Clean shutdown"}")
-                    exitCode.set(EXIT_CODE_SIGINT) // Standard Unix exit code for SIGINT
+                    logger.info("Program cancelled gracefully: ${e.message ?: "Clean shutdown"}")
+                    exitCode.set(ExitCode.SIGINT) // Standard Unix exit code for SIGINT
                 } catch (e: Exception) {
                     // Handle any other exception during execution
-                    handleProgramException(e)
+                    handleProgramException(e, logger)
                 }
             }
 
@@ -227,18 +210,26 @@ object AsyncApp {
                 }
             }
 
-            exitCode.get()
+            exitCode.get().code
+        } catch (e: ShowHelpException) {
+            // Help was displayed, exit successfully
+            logger.info("Help displayed: ${e.message}")
+            ExitCode.SUCCESS.code
+        } catch (e: ShowVersionException) {
+            // Version was displayed, exit successfully
+            logger.info("Version displayed: ${e.message}")
+            ExitCode.SUCCESS.code
         } catch (e: IllegalArgumentException) {
-            System.err.println("Configuration error: ${e.message}")
-            EXIT_CODE_GENERAL_ERROR
+            logger.error("Configuration error: ${e.message}")
+            ExitCode.EX_USAGE.code
         } catch (e: SecurityException) {
-            System.err.println("Security error: ${e.message}")
-            EXIT_CODE_GENERAL_ERROR
+            logger.error("Security error: ${e.message}")
+            ExitCode.EX_NOPERM.code
         } catch (e: Exception) {
-            handleUncaughtException(e)
-            EXIT_CODE_UNCAUGHT_EXCEPTION
+            handleUncaughtException(e, logger)
+            ExitCode.EX_SOFTWARE.code
         } finally {
-            cleanup()
+            cleanup(logger)
         }
     }
 
@@ -255,53 +246,16 @@ object AsyncApp {
      * the main thread to block until completion.
      *
      * @param args Command-line arguments
+     * @param signals Signal handler implementation (defaults to JvmSignals)
+     * @param logger Optional logger for lifecycle messages (defaults to console)
      * @return Exit code for the OS
      */
-    fun run(args: Array<String>): Int = runBlocking {
-        runAsync(args)
-    }
-
-    /**
-     * Installs signal handlers for graceful shutdown.
-     *
-     * ## Unix Signals
-     * Signals are how the OS communicates with processes:
-     * - **SIGTERM (15)**: Polite request to terminate
-     * - **SIGINT (2)**: User pressed Ctrl+C
-     * - **SIGHUP (1)**: Terminal disconnected
-     * - **SIGKILL (9)**: Cannot be caught! Forceful termination
-     *
-     * ## Platform Differences
-     * - Unix/Linux/Mac: Full signal support
-     * - Windows: Limited to SIGINT and SIGTERM
-     * - Some signals don't exist on all platforms
-     *
-     * ## Why Try-Catch?
-     * - Some environments restrict signal handling
-     * - Some signals might not exist on the platform
-     * - Security managers might block signal handling
-     *
-     * Failure to install handlers is logged but not fatal -
-     * the app can still run, just without graceful shutdown.
-     */
-    private fun installSignalHandlers() {
-        // Create a handler that will be called when signals arrive
-        val signalHandler = SignalHandler { sig ->
-            println("\nReceived signal: ${sig.name}")
-            initiateShutdown()
-        }
-
-        try {
-            Signal.handle(Signal("TERM"), signalHandler)
-            Signal.handle(Signal("INT"), signalHandler)
-
-            // Optional: Handle other signals
-            if (System.getProperty("os.name")?.contains("Windows") == false) {
-                Signal.handle(Signal("HUP"), signalHandler)
-            }
-        } catch (e: Exception) {
-            System.err.println("Warning: Could not install signal handlers: ${e.message}")
-        }
+    fun run(
+        args: Array<String>,
+        signals: SystemSignals = JvmSignals(),
+        logger: BootstrapLogger = ConsoleBootstrapLogger(),
+    ): Int = runBlocking {
+        runAsync(args, signals, logger)
     }
 
     /**
@@ -328,10 +282,12 @@ object AsyncApp {
      * - Database transactions to commit
      * - Network requests to finish
      * - Resources to be released
+     *
+     * @param logger Logger for shutdown messages
      */
-    private fun initiateShutdown() {
+    private fun initiateShutdown(logger: BootstrapLogger) {
         if (isShuttingDown.compareAndSet(false, true)) {
-            println("Initiating graceful shutdown...")
+            logger.info("Initiating graceful shutdown...")
 
             // Launch grace period timer
             cleanupJob = appScope.launch {
@@ -341,13 +297,13 @@ object AsyncApp {
 
                     // If we're still here, grace period expired
                     if (shutdownLatch.count > 0) {
-                        System.err.println("Forceful shutdown after timeout")
-                        exitCode.set(EXIT_CODE_SIGKILL) // SIGKILL exit code
+                        logger.error("Forceful shutdown after timeout")
+                        exitCode.set(ExitCode.fromThrowable(InterruptedException("Shutdown timeout")))
                         shutdownLatch.countDown()
                     }
                 } catch (e: CancellationException) {
                     // Normal: cleanup was cancelled because shutdown completed - log to avoid swallowing
-                    println("Cleanup cancelled: ${e.message ?: "Normal shutdown completion"}")
+                    logger.info("Cleanup cancelled: ${e.message ?: "Normal shutdown completion"}")
                 }
             }
 
@@ -387,85 +343,55 @@ object AsyncApp {
     /**
      * Handles uncaught exceptions in coroutines.
      *
-     * ## Exception Types and Exit Codes
-     *
-     * ### OutOfMemoryError (137)
-     * - JVM can't allocate more memory
-     * - Usually unrecoverable
-     * - Exit code 137 = 128 + 9 (SIGKILL)
-     *
-     * ### StackOverflowError (134)
-     * - Too much recursion
-     * - Stack space exhausted
-     * - Exit code 134 = 128 + 6 (SIGABRT)
-     *
-     * ### SecurityException (126)
-     * - Permission denied by security manager
-     * - Exit code 126 = command found but not executable
-     *
-     * ### Others (1)
-     * - General application error
-     * - Logged with stack trace for debugging
-     *
-     * Always initiates shutdown after logging.
+     * Uses ExitCode.fromThrowable to map exceptions to appropriate exit codes
+     * following Unix conventions. Always initiates shutdown after logging.
      *
      * @param exception The uncaught exception
+     * @param logger Logger for error messages
      */
-    private fun handleUncaughtException(exception: Throwable) {
+    private fun handleUncaughtException(exception: Throwable, logger: BootstrapLogger) {
+        val exitCodeToUse = ExitCode.fromThrowable(exception)
+
         when (exception) {
             is OutOfMemoryError -> {
-                System.err.println("CRITICAL: Out of memory")
-                exitCode.set(EXIT_CODE_SIGKILL)
+                logger.error("CRITICAL: Out of memory")
             }
             is StackOverflowError -> {
-                System.err.println("CRITICAL: Stack overflow")
-                exitCode.set(EXIT_CODE_ABORT)
+                logger.error("CRITICAL: Stack overflow")
             }
             is SecurityException -> {
-                System.err.println("SECURITY: ${exception.message}")
-                exitCode.set(EXIT_CODE_PERMISSION)
+                logger.error("SECURITY: ${exception.message}")
             }
             else -> {
-                System.err.println("FATAL: Unhandled exception: ${exception.javaClass.simpleName}")
-                exception.printStackTrace()
-                exitCode.set(EXIT_CODE_GENERAL_ERROR)
+                logger.error("FATAL: Unhandled exception: ${exception.javaClass.simpleName}", exception)
             }
         }
 
-        initiateShutdown()
+        exitCode.set(exitCodeToUse)
+        initiateShutdown(logger)
     }
 
     /**
      * Handles exceptions during program execution.
      *
-     * ## Exception Mapping
-     * Maps specific exceptions to meaningful exit codes:
-     * - **IllegalStateException (3)**: App in wrong state
-     * - **IllegalArgumentException (4)**: Bad input/config
-     * - **SecurityException (126)**: Permission denied
-     * - **InterruptedException (130)**: Thread interrupted
-     * - **Others (1)**: General errors
-     *
-     * ## Tuple Destructuring
-     * ```kotlin
-     * val (message, code) = when...
-     * ```
-     * Kotlin's destructuring declaration unpacks the Pair
-     * into two variables in one line!
+     * Uses ExitCode.fromThrowable to map exceptions to appropriate exit codes
+     * following Unix conventions.
      *
      * @param exception The exception caught during execution
+     * @param logger Logger for error messages
      */
-    private fun handleProgramException(exception: Exception) {
-        val (message, code) = when (exception) {
-            is IllegalStateException -> "Invalid state: ${exception.message}" to EXIT_CODE_STATE_ERROR
-            is IllegalArgumentException -> "Invalid argument: ${exception.message}" to EXIT_CODE_ARGUMENT_ERROR
-            is SecurityException -> "Security violation: ${exception.message}" to EXIT_CODE_PERMISSION
-            is InterruptedException -> "Interrupted: ${exception.message}" to EXIT_CODE_SIGINT
-            else -> "Error: ${exception.message ?: exception.javaClass.simpleName}" to EXIT_CODE_GENERAL_ERROR
+    private fun handleProgramException(exception: Exception, logger: BootstrapLogger) {
+        val exitCodeToUse = ExitCode.fromThrowable(exception)
+        val message = when (exception) {
+            is IllegalStateException -> "Invalid state: ${exception.message}"
+            is IllegalArgumentException -> "Invalid argument: ${exception.message}"
+            is SecurityException -> "Security violation: ${exception.message}"
+            is InterruptedException -> "Interrupted: ${exception.message}"
+            else -> "Error: ${exception.message ?: exception.javaClass.simpleName}"
         }
 
-        System.err.println(message)
-        exitCode.set(code)
+        logger.error(message)
+        exitCode.set(exitCodeToUse)
     }
 
     /**
@@ -490,8 +416,10 @@ object AsyncApp {
      * ## Error Handling
      * Cleanup errors are logged but don't prevent shutdown.
      * The app is terminating anyway.
+     *
+     * @param logger Logger for cleanup messages
      */
-    private fun cleanup() {
+    private fun cleanup(logger: BootstrapLogger) {
         try {
             cleanupJob?.cancel()
 
@@ -506,9 +434,9 @@ object AsyncApp {
                 }
             }
 
-            println("Cleanup completed")
+            logger.info("Cleanup completed")
         } catch (e: Exception) {
-            System.err.println("Error during cleanup: ${e.message}")
+            logger.error("Error during cleanup: ${e.message}")
         }
     }
 }

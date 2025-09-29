@@ -73,27 +73,48 @@ class ConsoleOutputAdapter : OutputPort {
 
 #### 2. FileOutputAdapter
 
-Writes messages to a file:
+Enhanced file writing with security validation and autoFlush support:
 
 ```kotlin
 class FileOutputAdapter(
     private val filePath: String,
-    private val append: Boolean = true
+    private val autoFlush: Boolean = false,
 ) : OutputPort {
     
     override suspend fun send(message: String): Either<ApplicationError, Unit> {
-        return try {
-            withContext(Dispatchers.IO) {
-                File(filePath).apply {
-                    parentFile?.mkdirs() // Create directories if needed
-                    if (append) {
-                        appendText("$message\n")
-                    } else {
-                        writeText("$message\n")
+        return withContext(Dispatchers.IO) {
+            try {
+                require(message.isNotBlank()) { "Message cannot be blank" }
+                
+                // Enhanced path validation with security checks
+                val path = validateFilePath(filePath)
+                
+                // Auto-create parent directories
+                path.parent?.let { parent ->
+                    if (!parent.exists()) {
+                        Files.createDirectories(parent)
                     }
                 }
-            }
-            Unit.right()
+                
+                // Write with optional immediate flush
+                if (autoFlush) {
+                    Files.writeString(
+                        path,
+                        message + System.lineSeparator(),
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND,
+                        StandardOpenOption.SYNC // Force disk sync
+                    )
+                } else {
+                    Files.writeString(
+                        path,
+                        message + System.lineSeparator(),
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND
+                    )
+                }
+                
+                Unit.right()
         } catch (e: IOException) {
             ApplicationError.OutputError(
                 "Failed to write to file: ${e.message}", 
@@ -154,56 +175,109 @@ val composite = CompositeOutputAdapter(
 )
 ```
 
-#### 4. BufferedFileOutputAdapter
+#### 4. BufferedFileOutputAdapter 🚀
 
-Efficient file writing with buffering:
+High-performance file writing with NIO channels and background processing:
 
 ```kotlin
 class BufferedFileOutputAdapter(
     private val filePath: String,
     private val bufferSize: Int = 8192,
-    private val append: Boolean = true
-) : OutputPort {
+    private val flushIntervalMs: Long = 1000,
+    private val maxQueueSize: Int = 10000,
+    private val autoFlush: Boolean = false,
+) : OutputPort, AutoCloseable {
     
-    private val buffer = StringBuilder(bufferSize)
-    private val lock = Mutex()
+    private val messageQueue = Channel<String>(capacity = maxQueueSize)
+    private val writerScope = CoroutineScope(
+        SupervisorJob() + 
+        Dispatchers.IO.limitedParallelism(1) +
+        CoroutineName("BufferedFileWriter-$filePath")
+    )
     
     override suspend fun send(message: String): Either<ApplicationError, Unit> {
         return try {
-            lock.withLock {
-                buffer.append(message).append('\n')
-                
-                // Flush when buffer is full
-                if (buffer.length >= bufferSize) {
-                    flush()
+            require(message.isNotBlank()) { "Message cannot be blank" }
+            
+            // Non-blocking queue operation
+            val result = messageQueue.trySend(message)
+            if (result.isSuccess) {
+                Unit.right()
+            } else {
+                // Queue full, try with timeout
+                withTimeout(100) {
+                    messageQueue.send(message)
+                    Unit.right()
                 }
             }
-            Unit.right()
         } catch (e: Exception) {
-            ApplicationError.OutputError("Buffer operation failed", e).left()
+            ApplicationError.OutputError(
+                "Failed to queue message: ${e.message}"
+            ).left()
         }
     }
     
-    private suspend fun flush() {
-        withContext(Dispatchers.IO) {
-            File(filePath).apply {
-                parentFile?.mkdirs()
-                if (append) {
-                    appendText(buffer.toString())
-                } else {
-                    writeText(buffer.toString())
+    // Background writer using NIO AsynchronousFileChannel
+    private suspend fun runWriter() {
+        AsynchronousFileChannel.open(
+            Path(filePath),
+            StandardOpenOption.CREATE,
+            StandardOpenOption.WRITE,
+            StandardOpenOption.APPEND
+        ).use { fileChannel ->
+            val buffer = StringBuilder(bufferSize)
+            
+            while (coroutineContext.isActive) {
+                val message = withTimeoutOrNull(flushIntervalMs) {
+                    messageQueue.receive()
+                }
+                
+                if (message != null) {
+                    buffer.append(message).append(System.lineSeparator())
+                    
+                    val shouldFlush = autoFlush || 
+                        buffer.length >= bufferSize
+                    
+                    if (shouldFlush) {
+                        flushBuffer(fileChannel, buffer)
+                    }
+                } else if (buffer.isNotEmpty()) {
+                    // Timeout - flush existing content
+                    flushBuffer(fileChannel, buffer)
                 }
             }
         }
-        buffer.clear()
+    }
+    
+    companion object {
+        // Factory methods for common configurations
+        fun highThroughput(filePath: String) = BufferedFileOutputAdapter(
+            filePath = filePath,
+            bufferSize = 65536, // 64KB
+            flushIntervalMs = 5000, // 5 seconds
+            maxQueueSize = 50000,
+            autoFlush = false
+        )
+        
+        fun lowLatency(filePath: String) = BufferedFileOutputAdapter(
+            filePath = filePath,
+            bufferSize = 1024, // 1KB
+            flushIntervalMs = 100, // 100ms
+            maxQueueSize = 1000,
+            autoFlush = true
+        )
     }
 }
 ```
 
-**Benefits**:
-- Reduces I/O operations
-- Better performance for high-frequency writes
-- Thread-safe with Mutex
+**Enhanced Features**:
+- **NIO Channels**: True async I/O with AsynchronousFileChannel
+- **Background Processing**: Dedicated writer coroutine with message queuing
+- **Configurable Buffering**: Size, flush interval, and queue depth
+- **Performance Metrics**: Track bytes written and queue utilization
+- **AutoFlush Support**: Optional immediate persistence vs performance
+- **Factory Methods**: Pre-configured for high-throughput or low-latency scenarios
+- **Graceful Shutdown**: Proper resource cleanup with timeout
 - Manual flush capability
 
 ## Common Patterns and Solutions

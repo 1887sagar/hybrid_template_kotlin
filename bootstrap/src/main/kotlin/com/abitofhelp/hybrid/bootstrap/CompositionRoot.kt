@@ -1,9 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 // Kotlin Hybrid Architecture Template
 // Copyright (c) 2025 Michael Gardner, A Bit of Help, Inc.
 // SPDX-License-Identifier: BSD-3-Clause
 // See LICENSE file in the project root.
-////////////////////////////////////////////////////////////////////////////////
+// //////////////////////////////////////////////////////////////////////////////
 
 package com.abitofhelp.hybrid.bootstrap
 
@@ -66,7 +66,7 @@ import com.abitofhelp.hybrid.presentation.cli.createAndRunCli
  * ```
  * 1. Infrastructure → Create concrete implementations (adapters)
  *    ├── FileOutputAdapter
- *    ├── ConsoleOutputAdapter  
+ *    ├── ConsoleOutputAdapter
  *    └── DefaultGreetingService
  *
  * 2. Application → Create use cases with dependencies
@@ -93,10 +93,10 @@ import com.abitofhelp.hybrid.presentation.cli.createAndRunCli
  * class AppModule {
  *     @Provides @Singleton
  *     fun provideGreetingService(): GreetingService = DefaultGreetingService()
- *     
+ *
  *     @Provides
  *     fun provideOutputPort(@Named("outputPath") path: String?): OutputPort =
- *         if (path != null) FileOutputAdapter(path) 
+ *         if (path != null) FileOutputAdapter(path)
  *         else ConsoleOutputAdapter()
  * }
  *
@@ -200,27 +200,27 @@ object CompositionRoot {
 
     /**
      * Builds and runs async program with custom ports for testing.
-     * 
+     *
      * ## Purpose
      * This method allows tests to inject their own output adapters
      * to capture and assert on output without touching global streams.
-     * 
+     *
      * ## Example Usage in Tests
      * ```kotlin
      * val outputCollector = TestOutputAdapter()
      * val errorCollector = TestErrorOutputAdapter()
-     * 
+     *
      * val exitCode = CompositionRoot.buildAndRunAsyncForTesting(
      *     cfg = AppConfig(name = "TestUser"),
      *     outputPort = outputCollector,
      *     errorOutputPort = errorCollector
      * )
-     * 
+     *
      * outputCollector.messages shouldContain "Hey there, TestUser!"
      * errorCollector.errors shouldBe empty
      * exitCode shouldBe 0
      * ```
-     * 
+     *
      * @param cfg Application configuration
      * @param outputPort Custom output port (e.g., test collector)
      * @param errorOutputPort Custom error output port (e.g., test collector)
