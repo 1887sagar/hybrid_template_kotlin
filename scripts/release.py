@@ -33,7 +33,7 @@ from typing import List, Optional
 class ReleaseManager:
     def __init__(self, project_root: str):
         self.project_root = Path(project_root)
-        self.date_str = datetime.now().strftime("%B %Y")
+        self.date_str = datetime.now().strftime("%B %d, %Y")
         
     def find_markdown_files(self) -> List[Path]:
         """Find all markdown files with version headers."""
@@ -172,17 +172,20 @@ class ReleaseManager:
                 cmd, 
                 cwd=self.project_root,
                 capture_output=capture_output,
-                text=True,
-                check=True
+                text=True
             )
-            return result.stdout if capture_output else None
-        except subprocess.CalledProcessError as e:
-            print(f"Command failed: {' '.join(cmd)}")
-            print(f"Error: {e}")
-            if e.stdout:
-                print(f"Stdout: {e.stdout}")
-            if e.stderr:
-                print(f"Stderr: {e.stderr}")
+            if result.returncode != 0:
+                print(f"Command failed: {' '.join(cmd)}")
+                print(f"Exit code: {result.returncode}")
+                if result.stdout:
+                    print(f"Stdout: {result.stdout}")
+                if result.stderr:
+                    print(f"Stderr: {result.stderr}")
+                return None
+            return result.stdout if capture_output else "SUCCESS"
+        except Exception as e:
+            print(f"Command error: {' '.join(cmd)}")
+            print(f"Exception: {e}")
             return None
     
     def verify_clean_working_tree(self) -> bool:
@@ -203,8 +206,11 @@ class ReleaseManager:
         
         for cmd in commands:
             print(f"Running: {' '.join(cmd)}")
-            if self.run_command(cmd) is None:
+            result = self.run_command(cmd)
+            if result is None:
+                print(f"❌ Command failed: {' '.join(cmd)}")
                 return False
+            print(f"✓ Command succeeded: {' '.join(cmd)}")
                 
         return True
     

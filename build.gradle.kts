@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "com.abitofhelp"
-version = "1.0-SNAPSHOT"
+version = "1.0.0"
 
 // Aggregate JaCoCo reports from all subprojects
 tasks.register<JacocoReport>("jacocoRootReport") {
